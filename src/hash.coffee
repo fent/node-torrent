@@ -114,59 +114,17 @@ module.exports = (dir, list, pieceLength, options = {}, callback) ->
 
   # keep track of how many read tasks are running
   # and the memory used by them
-  maxConcurrentReads = Math.floor(options.maxBytes / pieceLength)
-  bytesAllocated = tasksRunning = 0
+  bytesAllocated = 0
   checkBytes = (workers, task) ->
-    bytesAllocated + task.length < options.maxBytes
+    if bytesAllocated + task.length < options.maxBytes
+      bytesAllocated += task.length
+      true
+    else
+      false
 
   # add optiosn to stop hashing
   emitter.stop = (err) ->
     emitter.err = err
-
-  # the max allowed reads will initially maxBytese / pieceLength
-  # but it is possible that files or last read part of a file
-  # can be smaller than pieceLength
-  # so this function recalculates the max allowed concurrent tasks
-  updateConcurrency = (length, newTask = true) ->
-    tasksRunning++ if newTask
-    bytesAllocated += length
-    diff = tasksRunning - Math.ceil(bytesAllocated / pieceLength)
-    readqueue.concurrency = maxConcurrentReads + diff
-
-  # create queue for memory usage
-  readqueue = async.queue (task, callback) ->
-    return callback emitter.err if emitter.err
-    updateConcurrency task.length
-
-    # check if piece has been written to already
-    # if not, make object for it
-    if not pieces[task.piece].buffer
-      pieces[task.piece].buffer = new Buffer pieces[task.piece].length
-
-    # read file
-    fs.read task.fd, pieces[task.piece].buffer, task.offset, task.length,
-      task.position, (err, bytesRead, buffer) ->
-        if err
-          console.log 'read error'
-          emitter.emit 'error', err
-          return callback()
-
-        # update amount of bytes written to buffer
-        pieces[task.piece].length -= task.length
-
-        # check if buffer is full, if it is, generate hash
-        if pieces[task.piece].length is 0
-          pieces[task.piece] = sha1(pieces[task.piece].buffer)
-
-          # emit hash event with piece info and progress
-          percent = round(++piecesHashed / pieces.length * 100, 2)
-          emitter.emit 'hash', task.piece, pieces[task.piece], percent,
-            task.file, task.position, task.length
-
-        updateConcurrency -task.length, false
-        callback()
-
-  , maxConcurrentReads
 
   # access files asynchronously to calculate piece hashes
   filesqueue = async.queue (task, callback) ->
@@ -179,27 +137,52 @@ module.exports = (dir, list, pieceLength, options = {}, callback) ->
         return callback()
       emitter.emit 'open', task.file
 
+      # create queue for memory usage
+      readqueue = async.queue (task, callback) ->
+        return callback emitter.err if emitter.err
+
+        # check if piece has been written to already
+        # if not, make object for it
+        if not pieces[task.piece].buffer
+          pieces[task.piece].buffer = new Buffer pieces[task.piece].length
+
+        # read file
+        fs.read task.fd, pieces[task.piece].buffer, task.offset,
+          task.length, task.position, (err, bytesRead, buffer) ->
+            if err
+              console.log 'read error'
+              emitter.emit 'error', err
+              return callback()
+
+            # update amount of bytes written to buffer
+            pieces[task.piece].length -= task.length
+
+            # check if buffer is full, if it is, generate hash
+            if pieces[task.piece].length is 0
+              pieces[task.piece] = sha1(pieces[task.piece].buffer)
+
+              # emit hash event with piece info and progress
+              percent = round(++piecesHashed / pieces.length * 100, 2)
+              emitter.emit 'hash', task.piece, pieces[task.piece], percent,
+                task.file, task.position, task.length
+
+            callback()
+
+      , checkBytes
+
+      # close this file when queue finishes
+      readqueue.drain = ->
+        fs.close fd, (err) -> emitter.emit 'error', err if err
+        emitter.emit 'close', task.file
+        callback()
+
       # queue up tasks for reading file asynchronously
-      for readtask, i in task.readtasks
+      for readtask in task.readtasks
         # add file/fd to task object to reference in worker
         readtask.file = file
         readtask.fd   = fd
-
-        # change the finished function for the last task
-        # to close the file
-        if i is task.readtasks.length - 1
-          finish = (err) ->
-            fs.close fd, (err) ->
-              emitter.emit 'error', err if err
-            emitter.emit 'close', task.file
-            callback()
-        readqueue.push readtask, finish
+        readqueue.push readtask
   , options.maxFiles
-
-  readqueue.saturated = ->
-    console.log 'read queue is saturated!'
-  filesqueue.saturated = ->
-    console.log 'filesqueue is saturated!'
 
   # what to do when queue is finished
   filesqueue.drain = ->
