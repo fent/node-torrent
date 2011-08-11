@@ -1,0 +1,30 @@
+{
+  "name": "nt",
+  "description": "Read, make, write, and hash check torrent files",
+  "keywords": ["torrent", "bittorremt", "file"],
+  "version": "0.1.0",
+  "homepage": "https://github.com/fent/nt",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/fent/nt.git"
+  },
+  "author": "Roly Fentanes (https://github.com/fent)",
+  "main": "./lib/torrent.js",
+  "bin": "./bin/nt.js",
+  "directories": {
+    "lib": "./lib"
+  },
+  "engines": {
+    "node": "*"
+  },
+  "dependencies" : {
+    "bencode": ">=0.1.0",
+    "async": ">=0.1.9",
+    "optimist" : ">=0.2.6",
+    "findit" : ">=0.1.1"
+  },
+  "licenses": [ {
+    "type": "MIT",
+    "url" : "http://github.com/fent/nt/raw/master/LICENSE"
+  }]
+}
