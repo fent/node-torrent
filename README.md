@@ -95,6 +95,7 @@ Edits a torrent file with given `options`. Faster than writing another file from
 * `source` * **
 
 `*` If false, will delete the key from the torrent.
+
 `**` If changed, will cause the torrent to have a different info hash.
 
 ###write(output, announceURL, dir, files, [options], callback(err, emitter, pieces, torrent)
