@@ -7,6 +7,7 @@ Install
 Usage
 ------------------
 To read a torrent
+
 ```javascript
 var nt = require('nt');
 nt.read('path/to/file.torrent', function(err, torrent) {
@@ -23,6 +24,7 @@ nt.read('http://torrents.me/download.php?id=2342', function(err, torrent) {
 ```
 
 To write a torrent
+
 ```javascript
 nt.write('outputfile', 'http://announce.me', __dirname + '/files',
   ['somefile.ext', 'another.one', 'inside/afolder.mkv', 'inside/etc'],
