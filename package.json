@@ -19,17 +19,18 @@
   "engines": {
     "node": "*"
   },
-  "dependencies" : {
+  "dependencies": {
     "bncode": ">=0.1.5",
     "buffers": ">=0.1.0",
     "nomnom": ">=1.0.0",
     "findit": ">=0.1.1",
     "colors": ">=0.5.1"
   },
-  "devDependencies" : {
+  "devDependencies": {
     "vows": ">=0.5.11",
     "nock": ">=0.2.2"
   },
+  "bundledDependencies": ['async'],
   "licenses": [ {
     "type": "MIT",
     "url" : "http://github.com/fent/node-torrent/raw/master/LICENSE"
