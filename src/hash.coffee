@@ -3,6 +3,7 @@ fs             = require 'fs'
 crypto         = require 'crypto'
 {EventEmitter} = require 'events'
 async          = require 'async'
+Buffers        = require 'buffers'
 
 
 # some defaults used when reading files
@@ -116,11 +117,7 @@ module.exports = (dir, list, pieceLength, options = {}, callback) ->
   # and the memory used by them
   bytesAllocated = 0
   checkBytes = (workers, task) ->
-    if bytesAllocated + task.length < options.maxBytes
-      bytesAllocated += task.length
-      true
-    else
-      false
+    bytesAllocated + task.length < options.maxBytes
 
   # add optiosn to stop hashing
   emitter.stop = (err) ->
@@ -140,6 +137,7 @@ module.exports = (dir, list, pieceLength, options = {}, callback) ->
       # create queue for memory usage
       readqueue = async.queue (task, callback) ->
         return callback emitter.err if emitter.err
+        bytesAllocated += task.length
 
         # check if piece has been written to already
         # if not, make object for it
@@ -150,7 +148,6 @@ module.exports = (dir, list, pieceLength, options = {}, callback) ->
         fs.read task.fd, pieces[task.piece].buffer, task.offset,
           task.length, task.position, (err, bytesRead, buffer) ->
             if err
-              console.log 'read error'
               emitter.emit 'error', err
               return callback()
 
@@ -159,12 +156,15 @@ module.exports = (dir, list, pieceLength, options = {}, callback) ->
 
             # check if buffer is full, if it is, generate hash
             if pieces[task.piece].length is 0
-              pieces[task.piece] = sha1(pieces[task.piece].buffer)
+              length = pieces[task.piece].buffer.length
+              pieces[task.piece] = new Buffer(
+                sha1(pieces[task.piece].buffer), 'binary')
 
               # emit hash event with piece info and progress
               percent = round(++piecesHashed / pieces.length * 100, 2)
               emitter.emit 'hash', task.piece, pieces[task.piece], percent,
                 task.file, task.position, task.length
+              bytesAllocated -= length
 
             callback()
 
@@ -172,8 +172,9 @@ module.exports = (dir, list, pieceLength, options = {}, callback) ->
 
       # close this file when queue finishes
       readqueue.drain = ->
-        fs.close fd, (err) -> emitter.emit 'error', err if err
-        emitter.emit 'close', task.file
+        fs.close fd, (err) ->
+          emitter.emit 'error', err if err
+          emitter.emit 'close', task.file
         callback()
 
       # queue up tasks for reading file asynchronously
@@ -186,12 +187,14 @@ module.exports = (dir, list, pieceLength, options = {}, callback) ->
 
   # what to do when queue is finished
   filesqueue.drain = ->
-    emitter.emit 'end', pieces.join ''
+    # join all the pieces
+    buf = Buffers()
+    for p in pieces
+      buf.push p
+    emitter.emit 'end', buf.toBuffer()
 
   # start queueing jobs
-  #console.log pieces
   for task in filetasks
-    #console.log task
     filesqueue.push task
 
   # return emitter, number of pieces and list of processed files
