@@ -112,7 +112,7 @@ vows.describe('Read')
         'Info hash matches': function(err, result) {
           assert.isObject(result);
           assert.equal(nt.getInfoHash(result),
-              '2fff646b166f37f4fd131778123b25a01639e0b3');
+              'a51cbb0e3b4d6430ca0d1da70c1c7b0bb94304f4');
         }
       }
     },

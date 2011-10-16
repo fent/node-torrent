@@ -88,7 +88,7 @@ progress = (percent) ->
   percent = CLEAR.substr(0, 6 - percent.length) + percent
 
   # print progress bar
-  process.stdout.write ' ['.grey + BAR.substr(0, rounded).green + NOBAR.substr(0, 50 - rounded) + '] '.grey + percent.bold.cyan + '%'.grey + '\r'
+  process.stdout.write ' ['.grey + BAR.substr(0, rounded).bold.green + NOBAR.substr(0, 50 - rounded) + '] '.grey + percent.bold.cyan + '%'.grey + '\r'
 
 logerr = (err) ->
   process.stderr.write 'Error: '.bold.red + (err.message or err) + '\n'
@@ -195,7 +195,7 @@ switch options.action
     options.announce = getAnnounce options
     nt.edit options.files[0], options, (err, output) ->
       logerr if err
-      console.log "File written to #{output}"
+      console.log "File written to #{output.bold}"
 
   when 'hash'
     nt.readFile options.files[0], (err, result) ->
