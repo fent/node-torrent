@@ -77,7 +77,7 @@ All of the read functions will return a torrent object. Here is an example of on
 }
 ```
 
-An error can be returned if the torrent is formatted incorrectly. Does not check if the dictonaries are listed alphabetically. Refer to the (BitTorrent Specification)[http://wiki.theory.org/BitTorrentSpecification] for more info on torrent metainfo.
+An error can be returned if the torrent is formatted incorrectly. Does not check if the dictonaries are listed alphabetically. Refer to the [BitTorrent Specification](http://wiki.theory.org/BitTorrentSpecification) for more info on torrent metainfo.
 
 ###getInfoHash(torrent)
 Returns the info hash of a torrent object. Useful in identifying torrents.
