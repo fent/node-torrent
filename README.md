@@ -86,15 +86,16 @@ Returns the info hash of a torrent object. Useful in identifying torrents.
 
 Edits a torrent file with given `options`. Faster than writing another file from scratch and recalculating all the pieces. `options` can have the following keys:
 
-* `output` use this if you want to write to a new file
+* `output` - Use this if you want to write to a new file
 * `announce`
 * `announceList` *
 * `comment` *
-* `name` can only be changed if torrent is multi file mode
-* `private` *
-* `source` *
+* `name` ** - Can only be changed if torrent is multi file mode
+* `private` * **
+* `source` * **
 
 `*` If false, will delete the key from the torrent.
+`**` If changed, will cause the torrent to have a different info hash.
 
 ###write(output, announceURL, dir, files, [options], callback(err, emitter, pieces, torrent)
 
