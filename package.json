@@ -30,8 +30,8 @@
     "vows": ">=0.5.11",
     "nock": ">=0.2.2"
   },
-  "bundledDependencies": ['async'],
-  "licenses": [ {
+  "bundledDependencies": ["async"],
+  "licenses": [{
     "type": "MIT",
     "url" : "http://github.com/fent/node-torrent/raw/master/LICENSE"
   }]
