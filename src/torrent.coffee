@@ -63,6 +63,7 @@ readURL = (urladdr, requestOptions = {}, callback) ->
     if parsed.search then parsed.search else '' +
     if parsed.hash then parsed.hash else ''
 
+  decoder = new b.decoder()
   buf = Buffers()
   req = f.get(requestOptions, (res) ->
     if res.statusCode isnt 200
@@ -70,14 +71,14 @@ readURL = (urladdr, requestOptions = {}, callback) ->
 
     res.on 'data', (data) ->
       try
+        decoder.decode data
         buf.push data
       catch err
         req.abort()
         callback err
 
     res.on 'end', ->
-      buf = buf.toBuffer()
-      schema.validate b.decode(buf), buf, callback
+      schema.validate decoder.result()[0], buf.toBuffer(), callback
 
   ).on 'error', (err) ->
     callback err
@@ -85,9 +86,23 @@ readURL = (urladdr, requestOptions = {}, callback) ->
 
 # reads torrent from local file system
 readFile = (file, callback) ->
-  fs.readFile file, (err, data) ->
-    return callback err if err
-    schema.validate b.decode(data), data, callback
+  rs = fs.createReadStream file
+
+  rs.on 'error', (err) ->
+    callback err
+  
+  decoder = new b.decoder()
+  buf = Buffers()
+  rs.on 'data', (data) ->
+    try
+      decoder.decode data
+      buf.push data
+    catch err
+      fs.close rs.fd
+      callback err
+
+  rs.on 'end', ->
+    schema.validate decoder.result()[0], buf.toBuffer(), callback
 
 
 # read raw data
