@@ -10,6 +10,9 @@
   "author": "fent (https://github.com/fent)",
   "main": "./lib/torrent.js",
   "bin": "./bin/nt",
+  "scripts": {
+    "test": "vows test/*.js --spec"
+  },
   "directories": {
     "lib": "./lib"
   },
