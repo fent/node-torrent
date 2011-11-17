@@ -1,9 +1,3 @@
-Install
-------------
-
-    npm install nt -g
-
-
 Usage
 ------------------
 To read a torrent
@@ -54,7 +48,7 @@ Downloads a torrent from a URL. `requestOptions` optionally can be used to custo
 Reads a torrent file.
 
 ###readRaw(data, callback(err, torrent, buffer))
-Parses raw torrent data. `data` must be a buffer or binary encoded string.
+Parses raw torrent data. `data` must be a buffer.
 
 All of the read functions will return a torrent object. Here is an example of one
 
@@ -164,3 +158,20 @@ nt can be ran from the command line too!
       -f, --max-files INT             Max simultaneous files to open
       -m, --max-memory STR            Max amount of memory to allocate
       --folder FOLDER                 Folder to hash check
+
+
+Install
+------------
+
+```bash
+npm -g install nt
+```
+
+
+Tests
+---------
+Tests are written with [vows](http://vowsjs.org/)
+
+```bash
+npm test
+```
