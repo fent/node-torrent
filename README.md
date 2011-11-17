@@ -4,6 +4,7 @@ To read a torrent
 
 ```javascript
 var nt = require('nt');
+
 nt.read('path/to/file.torrent', function(err, torrent) {
   if (err) throw err;
   console.log('Info hash:', nt.getInfoHash(torrent));
@@ -33,6 +34,23 @@ nt.write('outputfile', 'http://announce.me', __dirname + '/files',
       console.log('Finished writing torrent!');
     });
   });
+```
+
+To hash check a torrent
+
+```javascript
+nt.read('path/to/file.torrent', function(err, torrent) {
+  if (err) throw err;
+
+  nt.hashCheck(torrent, __dirname + '/files', function(err, emitter) {
+    if (err) throw err;
+    
+    emitter.on('end', function(percentMatched) {
+      console.log('Hash Check:', percentMatched + '%');
+    });
+  });
+
+});
 ```
 
 
@@ -118,7 +136,7 @@ Called when torrent is finished writing.
 
 ###hashCheck(torrent, dir, [options], callback(err, emitter))
 
-Use a torrent object to hash check a directory where its files should be. Options can have `maxMemory` and `maxFiles. Which default to 512 MB and 500 respectively. The `emitter` the `callback` is called with, emits the following:
+Use a torrent object to hash check a directory where its files should be. Options can have `maxMemory` and `maxFiles`. Which default to 512 MB and 500 respectively. The `emitter` the `callback` is called with, emits the following:
 
 * 'match' `function (index, hash, percentMatched, file, position, length) { }`
 Emitted when a piece matches with its `index`, the piece, and the percentage of pieces matched so far.
@@ -129,7 +147,7 @@ Emitted when a piece does not match.
 * 'error' `function (err) { }`
 Error hash checking. Most likely an IO error.
 
-* 'end' `function () { }`
+* 'end' `function (percentMatched) { }`
 Hash checking is finished.
 
 
