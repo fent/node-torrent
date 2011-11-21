@@ -2,8 +2,8 @@ path           = require 'path'
 fs             = require 'fs'
 crypto         = require 'crypto'
 {EventEmitter} = require 'events'
-async          = require 'async'
 Buffers        = require 'buffers'
+queue          = require './queue'
 
 
 # some defaults used when reading files
@@ -124,7 +124,7 @@ module.exports = (dir, list, pieceLength, options = {}, callback) ->
     emitter.err = err
 
   # access files asynchronously to calculate piece hashes
-  filesqueue = async.queue (task, callback) ->
+  filesqueue = queue (task, callback) ->
     return callback emitter.err if emitter.err
 
     # open file for reading
@@ -135,7 +135,7 @@ module.exports = (dir, list, pieceLength, options = {}, callback) ->
       emitter.emit 'open', task.file
 
       # create queue for memory usage
-      readqueue = async.queue (task, callback) ->
+      readqueue = queue (task, callback) ->
         return callback emitter.err if emitter.err
         bytesAllocated += task.length
 
