@@ -1,6 +1,10 @@
-Usage
-------------------
-To read a torrent
+# node-torrent [![Build Status](https://secure.travis-ci.org/fent/node-torrent.png)](http://travis-ci.org/fent/node-torrent)
+
+Read, make, and hash check torrents with node.js!
+
+# Usage
+
+## Read a torrent
 
 ```javascript
 var nt = require('nt');
@@ -18,7 +22,7 @@ nt.read('http://torrents.me/download.php?id=2342', function(err, torrent) {
 });
 ```
 
-To write a torrent
+## Write a torrent
 
 ```javascript
 nt.write('outputfile', 'http://announce.me', __dirname + '/files',
@@ -36,7 +40,7 @@ nt.write('outputfile', 'http://announce.me', __dirname + '/files',
   });
 ```
 
-To hash check a torrent
+## Hash check a torrent
 
 ```javascript
 nt.read('path/to/file.torrent', function(err, torrent) {
@@ -54,8 +58,8 @@ nt.read('path/to/file.torrent', function(err, torrent) {
 ```
 
 
-API
----
+# API
+
 ###read(file, [requestOptions], callback(err, torrent, buffer))
 Reads a torrent file. If it's a URL, it will be downloaded. `requestOptions` is optional, and can be used to customize the request if `file` is downloaded.
 
@@ -151,8 +155,7 @@ Error hash checking. Most likely an IO error.
 Hash checking is finished.
 
 
-Command Line
-------------
+# Command Line
 nt can be ran from the command line too!
 
     Usage: nt <action> [options] <files>...
@@ -178,18 +181,21 @@ nt can be ran from the command line too!
       --folder FOLDER                 Folder to hash check
 
 
-Install
-------------
+# Install
 
 ```bash
 npm -g install nt
 ```
 
 
-Tests
----------
+# Tests
 Tests are written with [vows](http://vowsjs.org/)
 
 ```bash
 npm test
 ```
+
+
+# License
+
+MIT
