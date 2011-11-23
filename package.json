@@ -17,7 +17,7 @@
     "lib": "./lib"
   },
   "scripts": {
-    "test": "vows test/*.js --spec"
+    "test": "vows test/*-test.js --spec"
   },
   "engines": {
     "node": "*"
