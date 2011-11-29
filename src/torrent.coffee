@@ -38,11 +38,13 @@ read = (file, requestOptions = {}, callback) ->
     readURL file, requestOptions, callback
 
   # check if file exists in case it's a path
-  else if path.existsSync file
-    readFile file, callback
-  
   else
-    callback new Error 'Not a URL and file does not exists'
+    path.exists file, (exists) ->
+      if exists
+        readFile file, callback
+      else
+        callback new Error 'Not a URL and file does not exists'
+
 
 # download torrent and read its data
 readURL = (urladdr, requestOptions = {}, callback) ->

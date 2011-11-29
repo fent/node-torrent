@@ -143,14 +143,15 @@ switch options.action
     for file in options.files
       do (file) ->
         funs.push (callback) ->
-          if not path.existsSync file
-            return callback new Error "#{file} does not exist"
+          path.exists file, (exists) ->
+            if not exists
+              return callback new Error "#{file} does not exist"
 
-          files = []
-          file = removeForwardSlash path.normalize file
-          emitter = findit.find file
-          emitter.on 'file', (file) -> files.push removeFolder file
-          emitter.on 'end', -> callback null, files
+            files = []
+            file = removeForwardSlash path.normalize file
+            emitter = findit.find file
+            emitter.on 'file', (file) -> files.push removeFolder file
+            emitter.on 'end', -> callback null, files
 
     # traverse files asynchronously
     async.parallel funs, (err, results) ->
