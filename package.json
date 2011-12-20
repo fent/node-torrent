@@ -24,7 +24,8 @@
   },
   "dependencies": {
     "bncode": "0.2.x",
-    "nomnom": "1.0.x",
+    "buffers": "0.1.x",
+    "nomnom": "1.5.x",
     "findit": "0.1.x",
     "colors": "0.5.x",
     "async": "0.1.x"
