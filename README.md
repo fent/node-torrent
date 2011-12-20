@@ -60,16 +60,16 @@ nt.read('path/to/file.torrent', function(err, torrent) {
 
 # API
 
-###read(file, [requestOptions], callback(err, torrent, buffer))
+###read(file, [requestOptions], callback(err, torrent))
 Reads a torrent file. If it's a URL, it will be downloaded. `requestOptions` is optional, and can be used to customize the request if `file` is downloaded.
 
-###readURL(url, [requestOptions], callback(err, torrent, buffer))
+###readURL(url, [requestOptions], callback(err, torrent))
 Downloads a torrent from a URL. `requestOptions` optionally can be used to customize the request.
 
-###readFile(file, callback(err, torrent, buffer))
+###readFile(file, callback(err, torrent))
 Reads a torrent file.
 
-###readRaw(data, callback(err, torrent, buffer))
+###readRaw(data, callback(err, torrent))
 Parses raw torrent data. `data` must be a buffer.
 
 All of the read functions will return a torrent object. Here is an example of one

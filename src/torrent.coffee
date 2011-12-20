@@ -6,7 +6,6 @@ path           = require 'path'
 {EventEmitter} = require 'events'
 
 b              = require 'bncode'
-Buffers        = require 'buffers'
 hash           = require './hash'
 schema         = require './schema'
 
@@ -66,7 +65,6 @@ readURL = (urladdr, requestOptions = {}, callback) ->
     if parsed.hash then parsed.hash else ''
 
   decoder = new b.decoder()
-  buf = Buffers()
   req = f.get(requestOptions, (res) ->
     if res.statusCode isnt 200
       return callback new Error '404 file not found'
@@ -74,13 +72,12 @@ readURL = (urladdr, requestOptions = {}, callback) ->
     res.on 'data', (data) ->
       try
         decoder.decode data
-        buf.push data
       catch err
         req.abort()
         callback err
 
     res.on 'end', ->
-      schema.validate decoder.result()[0], buf.toBuffer(), callback
+      schema.validate decoder.result()[0], callback
 
   ).on 'error', (err) ->
     callback err
@@ -94,23 +91,21 @@ readFile = (file, callback) ->
     callback err
   
   decoder = new b.decoder()
-  buf = Buffers()
   rs.on 'data', (data) ->
     try
       decoder.decode data
-      buf.push data
     catch err
       fs.close rs.fd
       callback err
 
   rs.on 'end', ->
-    schema.validate decoder.result()[0], buf.toBuffer(), callback
+    schema.validate decoder.result()[0], callback
 
 
 # read raw data
 readRaw = (buf, callback) ->
   try
-    schema.validate b.decode(buf), buf, callback
+    schema.validate b.decode(buf), callback
 
   # there might be an error decoding
   catch err

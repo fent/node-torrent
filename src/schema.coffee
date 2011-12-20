@@ -43,7 +43,6 @@ checkTorrent = (torrent) ->
       for p, i in file.path
         if not Buffer.isBuffer p
           return '`path` is not a list of strings in file'
-        file.path[i] = p.toString('utf8')
     if torrent.info.length?
       return 'Cannot have `info.length` in multi file mode'
     if torrent.info.md5sum?
@@ -97,7 +96,6 @@ checkAnnounceList = (list) ->
       for ann, i in item
         if not Buffer.isBuffer ann
           return 'Field in `announce-list` is not a buffer'
-        item[i] = ann.toString('utf8')
         if not isURL item[i]
           return 'Item in `announce-list` list is not a URL'
   return null
@@ -107,7 +105,6 @@ checkBuffer = (torrent, field) ->
   if torrent[field]
     if not Buffer.isBuffer torrent[field]
       return "`#{field}` is not a buffer"
-    torrent[field] = torrent[field].toString('utf8')
   return null
 
 
@@ -121,20 +118,31 @@ checkmd5sum = (parent) ->
   if parent.md5sum?
     if not Buffer.isBuffer parent.md5sum
       return '`md5sum` is not a buffer'
-    parent.md5sum = parent.md5sum.toString('utf8')
     if not /[a-f0-9]{32}/i.test(parent.md5sum)
       return '`md5sum` is not a 32 length hex in file'
   return null
 
 
-validate = (torrent, buf, callback) ->
+buf2str = (torrent, path) ->
+  for key in Object.keys(torrent)
+    val = torrent[key]
+    if Buffer.isBuffer val
+      if path isnt '.info' or key isnt 'pieces'
+        torrent[key] = val.toString('utf8')
+    else if typeof val is 'object'
+      buf2str val, path + '.' + key
+  return
+
+
+validate = (torrent, callback) ->
   err = checkTorrent torrent
   if err isnt null
     err = new Error err
     err.name = 'SchemaError'
     return callback err
 
-  callback null, torrent, buf
+  buf2str torrent, ''
+  callback null, torrent
 
 
 # gets info hash of torrent object
