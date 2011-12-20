@@ -2,7 +2,7 @@
   "name": "nt",
   "description": "Read, make, write, and hash check torrent files",
   "keywords": ["torrent", "bittorremt", "file"],
-  "version": "0.1.3",
+  "version": "0.1.4",
   "repository": {
     "type": "git",
     "url": "git://github.com/fent/node-torrent.git"
