@@ -1,4 +1,4 @@
-var   nt = require('../lib/torrent'),
+var   nt = require('..'),
     vows = require('vows'),
 
   assert = require('assert'),
@@ -17,26 +17,24 @@ vows.describe('Hash Check')
 
         nt.readFile(file, function(err, result) {
           if (err) throw err;
-          nt.hashCheck(result, folder, function(err, emitter) {
-            if (err) throw err;
+          var hasher = nt.hashCheck(result, folder);
 
-            emitter.on('matcherror', function(err) {
-              throw err;
-            });
+          hasher.on('matcherror', function(i, file, pos, length) {
+            throw new Error('Could not match file ' + file);
+          });
 
-            var percent;
-            emitter.on('match', function(index, hash, percentMatched) {
-              percent = percentMatched;
-            });
+          var percent;
+          hasher.on('match', function(index, hash, percentMatched) {
+            percent = percentMatched;
+          });
 
-            emitter.on('end', function() {
-              cb(null, percent);
-            });
+          hasher.on('end', function() {
+            cb(null, percent);
           });
         });
       },
 
-      '100% match': function(err, percent) {
+      '100% match': function(percent) {
         assert.equal(percent, 100);
       }
     }

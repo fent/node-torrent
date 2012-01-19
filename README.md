@@ -22,59 +22,60 @@ nt.read('http://torrents.me/download.php?id=2342', function(err, torrent) {
 });
 ```
 
-## Write a torrent
+## Make a torrent
 
 ```javascript
-nt.write('outputfile', 'http://announce.me', __dirname + '/files',
-  ['somefile.ext', 'another.one', 'inside/afolder.mkv', 'inside/etc'],
-  function(err, emitter) {
-    if (err) throw err;
-    
-    emitter.on('error', function(err) {
-      throw err;
-    });
+var rs = nt.make('http://myannounce.net/url', __dirname + '/files');
+rs.pipe(fs.createWriteStream('mytorrent.torrent'));
 
-    emitter.on('end', function() {
-      console.log('Finished writing torrent!');
-    });
+// callback style
+nt.makeWrite('outputfile', 'http://announce.me', __dirname + '/files',
+  ['somefile.ext', 'another.one', 'inside/afolder.mkv', 'afolder'],
+  function(err, torrent) {
+    if (err) throw err;
+    console.log('Finished writing torrent!');
   });
 ```
 
 ## Hash check a torrent
 
-```javascript
-nt.read('path/to/file.torrent', function(err, torrent) {
+```js
+nt.read(file, function(err, torrent) {
   if (err) throw err;
+  var hasher = nt.hashCheck(torrent, __dirname + '/files');
 
-  nt.hashCheck(torrent, __dirname + '/files', function(err, emitter) {
-    if (err) throw err;
-    
-    emitter.on('end', function(percentMatched) {
-      console.log('Hash Check:', percentMatched + '%');
-    });
+  var p;
+  hahser.on('match', function(i, hash, percent) {
+    p = percent;
   });
 
+  hasher.on('end', function() {
+    console.log('Hash Check:', p + '%', 'matched');
+  });
 });
 ```
 
 
 # API
 
-###read(file, [requestOptions], callback(err, torrent))
-Reads a torrent file. If it's a URL, it will be downloaded. `requestOptions` is optional, and can be used to customize the request if `file` is downloaded.
+### read(file, [requestOptions], callback(err, torrent))
+Reads a local file, remote file, or a readable stream. If `file` is a URL, it will be downloaded. `requestOptions` is optional, and can be used to customize the http request made by [request](https://github.com/mikeal/request). Returns readable stream.
 
-###readURL(url, [requestOptions], callback(err, torrent))
-Downloads a torrent from a URL. `requestOptions` optionally can be used to customize the request.
+### readURL(url, [requestOptions], callback(err, torrent))
+Downloads a torrent from a URL. `requestOptions` optionally can be used to customize the request. Returns readable stream.
 
-###readFile(file, callback(err, torrent))
-Reads a torrent file.
+### readFile(file, callback(err, torrent))
+Reads a torrent file. Returns readable stream.
 
-###readRaw(data, callback(err, torrent))
+### readStream(readstream, callback(err, torrent))
+Reads torrent data from a readable stream. Returns the readable stream.
+
+### readRaw(data, callback(err, torrent))
 Parses raw torrent data. `data` must be a buffer.
 
-All of the read functions will return a torrent object. Here is an example of one
+All of the read functions will pass a torrent object to the callback such as the following
 
-```javascript
+```js
 {
   announce: 'udp://tracker.publicbt.com:80',
   'announce-list': [
@@ -95,14 +96,52 @@ All of the read functions will return a torrent object. Here is an example of on
 
 An error can be returned if the torrent is formatted incorrectly. Does not check if the dictonaries are listed alphabetically. Refer to the [BitTorrent Specification](http://wiki.theory.org/BitTorrentSpecification) for more info on torrent metainfo.
 
-###getInfoHash(torrent)
-Returns the info hash of a torrent object. Useful in identifying torrents.
+### getInfoHash(torrent)
+Returns the info hash of a torrent object. Useful for identifying torrents.
 
-###edit(file, options, callback(err, output, torrent))
+```js
+nt.read('some.torrent', function(err, torrent) {
+  console.log('info hash:', nt.getInfoHash(torrent);
+});
+```
 
-Edits a torrent file with given `options`. Faster than writing another file from scratch and recalculating all the pieces. `options` can have the following keys:
+### make(announceURL, dir, [files], [options], [callback(err, torrent)])
 
-* `output` - Use this if you want to write to a new file
+Writes a new torrent file. `dir` is root directory of the torrent. The `files` array will relatively read files from there. If files is omitted, it implicitly adds all of the files in `dir` to the torrent. `options` can have the following:
+
+* `announceList` - An array of arrays of additional announce URLs.
+* `comment`
+* `name` - Can be used only in multi file mode. If not given, defaults to name of directory.
+* `pieceLength` - How to break up the pieces. Must be an integer `n` that says piece length will be `2^n`. Default is 256KB, or 2^18.
+* `private` - Set true if this is a private torrent.
+* `source` - This goes into the `info` dictionary of the torrent. Useful if you want to make a torrent have a unique info hash from a certain tracker.
+* `maxFiles` - Max files to open during piece hashing. Defaults to 500.
+* `maxMemory` - Max memory to allocate during piece hashing. Can be a string that matches `/((\d)+(\.\d+)?)(k|m|g|t)?b?/i` Defaults to 512MB.
+
+`callback` is called with a possible `err`, and a `torrent` object when hashing is finished.
+
+`make` returns a ReadableStream that also emits `error` events and has `.pause()` and `.resume()` like a regular readable stream. Here are all of the events it emits:
+
+* 'data': function (data { }`
+Bencoded raw torrent data that can be written to a file.
+
+* 'percent' `function (percent) { }`
+Whenever a piece is hashed, will emit a percentage that can be used to track progress.
+
+* 'error' `function (err) { }`
+If there is an error this will be emitted. Most likely IO error.
+
+* 'end' `function (torrent) { }`
+Called when torrent is finished hashing.
+
+### makeWrite(output, annlounce, dir, [files], [options], [callback(err, torrent)])
+
+A shortcut that pumps the returned readable stream from `make` into a writable stream that points to the file `output`. Returns readable stream.
+
+### edit(torrent, [options], [callback(err, torrent)])
+
+Edits a torrent file with given `options`. Faster than rehashing all the pieces by calling `make` again. `torrent` can be a local/remote path, a readable stream, or a torrent object. Returns a readable stream that emits `data` events of raw bencoded torrent data. `options` can have the following keys:
+
 * `announce`
 * `announceList` *
 * `comment` *
@@ -114,33 +153,21 @@ Edits a torrent file with given `options`. Faster than writing another file from
 
 `**` If changed, will cause the torrent to have a different info hash.
 
-###write(output, announceURL, dir, files, [options], callback(err, emitter, pieces, torrent)
+### editWrite(output, torrent, [options], [callback(err, torrent)])
 
-Writes a new torrent file. `dir` is future root directory of the torrent. The `files` array will relatively read files from there. `options` can have the following:
+Shortcut that pumps the returned readable stream from `edit` into a writable stream that points to the file `output`. Returns readable stream.
 
-* `announceList` - An array of arrays of additional announce URLs.
-* `comment`
-* `name` - Can be used only in multi file mode. If not given, defaults to name of directory.
-* `pieceLength` - How to break up the pieces. Must be an integer `n` that says piece length will be `2^n`. Default is 256KB, or 2^18.
-* `private` - Set true if this is a private torrent.
-* `source` - This goes into the `info` dictionary of the torrent. Useful if you want to make a torrent have a unique info hash from a certain tracker.
-* `maxFiles` - Max files to open during piece hashing. Defaults to 500.
-* `maxMemory` - Max memory to allocate during piece hashing. Can be a string that matches `/((\d)+(\.\d+)?)(k|m|g|t)?b?/i` Defaults to 512MB.
+### hashCheck(torrent, dir, [options])
 
-`callback` is called with `pieces` that represents the total number of pieces the files will be spit into, and a `torrent` object without the `torrent.info.pieces` field calculated. `emitter` will emit the following events:
+Hash check a directory where a torrent's files should be. `torrent` must be a torrent object. Options can have `maxMemory` and `maxFiles`. Which default to 512 MB and 500 respectively.
 
-* 'percent' `function (percent) { }`
-Whenever a piece is hashed, will emit a percentage that can be used to track progress.
+It returns an event emitter that emits the following events:
 
-* 'error' `function (err) { }`
-If there is an error this will be emitted.
+* 'ready' `function () { }`
+Emitter is ready to start hashing.
 
-* 'end' `function (percentMatched) { }`
-Called when torrent is finished writing.
-
-###hashCheck(torrent, dir, [options], callback(err, emitter))
-
-Use a torrent object to hash check a directory where its files should be. Options can have `maxMemory` and `maxFiles`. Which default to 512 MB and 500 respectively. The `emitter` the `callback` is called with, emits the following:
+* 'hash' `function (index, hash, percent, file, position, length) { }`
+Emitted when a piece is hashed along with hash position and source. Percent represents that number of pieces hashed so far.
 
 * 'match' `function (index, hash, percentMatched, file, position, length) { }`
 Emitted when a piece matches with its `index`, the piece, and the percentage of pieces matched so far.
@@ -151,34 +178,14 @@ Emitted when a piece does not match.
 * 'error' `function (err) { }`
 Error hash checking. Most likely an IO error.
 
-* 'end' `function (percentMatched) { }`
+* 'end' `function () { }`
 Hash checking is finished.
+
+The emitter also has `pause()`, `resume()`, `destroy()` and `start()` functions. `start()` is automatically called when the emitter is ready.
 
 
 # Command Line
-nt can be ran from the command line too!
-
-    Usage: nt <action> [options] <files>...
-
-    actions:
-      make   - Make a torrent
-      edit   - Read a torrent, edit its metainfo variables, and write it
-               Can't change its files
-      hash   - Returns info hash from a torrent
-      check  - Hash checks torrent file
-               If no folder is specified, will use cwd
-
-    options:
-      -a, --announce URL              Announce URL. At least one is required
-      -c, --comment COMMENT           Add a comment to the metainfo
-      -n, --name NAME                 Name of torrent
-      -l, --piece-length INT          Set piece to 2^n bytes. Default: 256KB
-      -p, --private                   Make this a private torrent
-      -s, --source STR                Add source to metainfo
-      -o, --output FILE               Where to write output file
-      -f, --max-files INT             Max simultaneous files to open
-      -m, --max-memory STR            Max amount of memory to allocate
-      --folder FOLDER                 Folder to hash check
+nt can be ran from the command line too! Install it with the `-g` flag with npm and use it with the command `nt`.
 
 
 # Install
