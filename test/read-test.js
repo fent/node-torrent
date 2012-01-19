@@ -1,4 +1,4 @@
-var      nt = require('../lib/torrent'),
+var      nt = require('..'),
        vows = require('vows'),
        nock = require('nock'),
 
@@ -27,20 +27,17 @@ vows.describe('Read')
         nt.readRaw(fs.readFileSync(file1), this.callback);
       },
 
-      'No errors': function(err, result) {
-        assert.isTrue(!err, err ? err.message : undefined);
-      },
-      'Info hash matches': function(err, result) {
+      'Info hash matches': function(result) {
         assert.isObject(result);
         assert.equal(nt.getInfoHash(result),
           'a38d02c287893842a32825aa866e00828a318f07');
       },
-      'Announce URL is correct': function(err, result) {
+      'Announce URL is correct': function(result) {
         assert.isObject(result);
         assert.include(result, 'announce');
         assert.equal(result.announce, 'udp://tracker.publicbt.com:80');
       },
-      'Single file mode': function(err, result) {
+      'Single file mode': function(result) {
         assert.isObject(result);
         assert.include(result, 'info');
         assert.include(result.info, 'name');
@@ -49,7 +46,7 @@ vows.describe('Read')
         assert.include(result.info, 'length');
         assert.equal(result.info.length, 718583808);
       },
-      '512 KB piece length': function(err, result) {
+      '512 KB piece length': function(result) {
         assert.isObject(result);
         assert.include(result, 'info');
         assert.include(result.info, 'piece length');
@@ -65,20 +62,17 @@ vows.describe('Read')
           nt.read(file2, this.callback);
         },
 
-        'No errors': function(err, result) {
-          assert.isTrue(!err, err ? err.message : undefined);
-        },
-        'Info hash matches': function(err, result) {
+        'Info hash matches': function(result) {
           assert.isObject(result);
           assert.equal(nt.getInfoHash(result),
               '2fff646b166f37f4fd131778123b25a01639e0b3');
         },
-        'Announce URL is correct': function(err, result) {
+        'Announce URL is correct': function(result) {
           assert.isObject(result);
           assert.include(result, 'announce');
           assert.equal(result.announce, 'http://hello.2u');
         },
-        'Single file mode': function(err, result) {
+        'Single file mode': function(result) {
           assert.isObject(result);
           assert.include(result, 'info');
           assert.include(result.info, 'name');
@@ -87,13 +81,13 @@ vows.describe('Read')
           assert.include(result.info, 'length');
           assert.equal(result.info.length, 87582);
         },
-        '256 KB piece length': function(err, result) {
+        '256 KB piece length': function(result) {
           assert.isObject(result);
           assert.include(result, 'info');
           assert.include(result.info, 'piece length');
           assert.equal(result.info['piece length'], 262144);
         },
-        'Private torrent': function(err, result) {
+        'Private torrent': function(result) {
           assert.isObject(result);
           assert.include(result, 'info');
           assert.include(result.info, 'private');
@@ -106,10 +100,21 @@ vows.describe('Read')
           nt.read(file4, this.callback);
         },
 
-        'No errors': function(err, result) {
-          assert.isTrue(!err, err ? err.message : undefined);
+        'Info hash matches': function(result) {
+          assert.isObject(result);
+          assert.equal(nt.getInfoHash(result),
+              'a51cbb0e3b4d6430ca0d1da70c1c7b0bb94304f4');
+        }
+      }
+    },
+
+    'Read a stream': {
+      'that holds a big video file': {
+        topic: function() {
+          nt.read(fs.createReadStream(file4), this.callback);
         },
-        'Info hash matches': function(err, result) {
+
+        'Info hash matches': function(result) {
           assert.isObject(result);
           assert.equal(nt.getInfoHash(result),
               'a51cbb0e3b4d6430ca0d1da70c1c7b0bb94304f4');
@@ -123,20 +128,17 @@ vows.describe('Read')
         nt.read(remotefile3, this.callback);
       },
 
-      'No errors': function(err, result) {
-        assert.isTrue(!err, err ? err.message : undefined);
-      },
-      'Info hash matches': function(err, result) {
+      'Info hash matches': function(result) {
         assert.isObject(result);
         assert.equal(nt.getInfoHash(result),
             '6a7eb42ab3b9781eba2d9ff3545d9758f27ec239');
       },
-      'Announce URL is correct': function(err, result) {
+      'Announce URL is correct': function(result) {
         assert.isObject(result);
         assert.include(result, 'announce');
         assert.equal(result.announce, 'http://tracker.mininova.org/announce');
       },
-      'Multi file mode': function(err, result) {
+      'Multi file mode': function(result) {
         assert.isObject(result);
         assert.include(result, 'info');
         assert.include(result.info, 'name');
@@ -153,7 +155,7 @@ vows.describe('Read')
           }
         ]);
       },
-      '1 MB piece length': function(err, result) {
+      '1 MB piece length': function(result) {
         assert.isObject(result);
         assert.include(result, 'info');
         assert.include(result.info, 'piece length');
@@ -161,4 +163,4 @@ vows.describe('Read')
       }
     }
   })
-.export(module);
+  .export(module);

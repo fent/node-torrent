@@ -1,2 +1,249 @@
 #!/usr/bin/env node
-require('../lib/nt.js')
+
+var parser = require('nomnom')()
+  .script('nt')
+  .colors()
+
+parser
+  .nocommand()
+  .callback(function() {
+    parser.print(parser.getUsage());
+  })
+
+parser
+  .command('make')
+  .help('Make a torrent')
+  .callback(function() {
+    process.nextTick(make);
+  })
+  .option('announceList', {
+      abbr: 'a'
+    , full: 'announce'
+    , list: true
+    , required: true
+    , metavar: 'URL'
+    , help: 'Announce URL. At least one is required'
+    })
+  .option('comment', {
+      abbr: 'c'
+    , metavar: 'STR'
+    , help: 'Add a comment to the metainfo'})
+  .option('name', {
+      abbr: 'n'
+    , metavar: 'STR'
+    , help: 'Name of torrent'
+    })
+  .option('pieceLength', {
+      abbr: 'l'
+    , full: 'piece-length'
+    , metavar: 'INT'
+    , help: 'Set piece to 2^n bytes. Default: 256KB'
+    })
+  .option('private', {
+      abbr: 'p'
+    , flag: true
+    , help: 'Make this a private torrent'
+    })
+  .option('source', {
+      abbr: 's'
+    , metavar: 'STR'
+    , help: 'Add source to metainfo'
+    })
+  .option('output', {
+      abbr: 'o'
+    , metavar: 'PATH'
+    , help: 'Where to write the output file'
+    })
+  .option('maxFiles', {
+      abbr: 'f'
+    , full: 'max-files'
+    , metavar: 'INT'
+    , help: 'Max simultaneous files to open'
+    })
+  .option('maxMemory', {
+      abbr: 'm'
+    , full: 'max-memory'
+    , metavar: 'STR'
+    , help: 'Max amount of memory to allocate'
+    })
+  .option('dir', {
+      abbr: 'd'
+    , metavar: 'PATH'
+    , default: process.cwd()
+    , help: 'Torrent root directory. Default: cwd'
+    })
+  .option('files', {
+      position: 1
+    , required: true
+    , list: true
+    , help: 'List of files to add to torrent'
+    })
+  
+parser
+  .command('edit')
+  .help('Read a torrent, edit its metainfo variables, and write it. ' +
+        'Can\'t change its files')
+  .callback(function() {
+    process.nextTick(edit);
+  })
+  .option('announceList', {
+      abbr: 'a'
+    , full: 'announce'
+    , list: true
+    , metavar: 'URL'
+    , help: 'Announce URL'
+    })
+  .option('comment', {
+      abbr: 'c'
+    , metavar: 'STR'
+    , help: 'Add a comment to the metainfo'})
+  .option('name', {
+      abbr: 'n'
+    , metavar: 'STR'
+    , help: 'Name of torrent. Can only be changed in multi file mode.'
+    })
+  .option('private', {
+      abbr: 'p'
+    , flag: true
+    , help: 'Make this a private torrent'
+    })
+  .option('source', {
+      abbr: 's'
+    , metavar: 'STR'
+    , help: 'Add source to metainfo'
+    })
+  .option('output', {
+      abbr: 'o'
+    , metavar: 'PATH'
+    , required: true
+    , help: 'Where to write the output file. Default: original torrent'
+    })
+  .option('file', {
+      position: 1
+    , required: true
+    , help: 'Torrent file to edit'
+    })
+
+parser
+  .command('infohash')
+  .help('Return info hash from torrent')
+  .callback(function() {
+    process.nextTick(infohash);
+  })
+  .option('file', {
+      position: 1
+    , required: true
+    , help: 'Torrent file'
+    })
+
+parser
+  .command('hashcheck')
+  .help('Hash checks torrent file. If no directory is given, will use cwd')
+  .callback(function() {
+    process.nextTick(hashcheck);
+  })
+  .option('maxFiles', {
+      abbr: 'f'
+    , full: 'max-files'
+    , metavar: 'INT'
+    , help: 'Max simultaneous files to open'
+    })
+  .option('maxMemory', {
+      abbr: 'm'
+    , full: 'max-memory'
+    , metavar: 'STR'
+    , help: 'Max amount of memory to allocate'
+    })
+  .option('dir', {
+      abbr: 'd'
+    , metavar: 'PATH'
+    , default: process.cwd()
+    , help: 'Directory to hash check. Default: cwd'
+    })
+  .option('file', {
+      position: 1
+    , required: true
+    , help: 'Torrent file to hash check'
+    })
+    
+var options = parser.parse()
+  , fs      = require('fs')
+  , path    = require('path')
+  , colors  = require('colors')
+  , nt      = require('..')
+  , util    = require('./util')
+
+
+function make() {
+  var announce = util.getAnnounce(options);
+  if (!announce) {
+    util.logerr('Must provide at least one announce URL');
+  }
+
+  var output =
+    options.output || options.name || options.files[0];
+  if (path.extname(output) !== '.torrent') output += '.torrent';
+
+  var hasher = nt.makeWrite(output, announce, options.dir,
+                            options.files, options);
+  console.time('Time taken');
+
+  hasher.on('error', util.logerr);
+  hasher.on('progress', function(percent) {
+    util.progress(percent);
+  });
+
+  hasher.on('end', function() {
+    console.log("\nFinished writing torrent at " + output.bold);
+    console.timeEnd('Time taken');
+  });
+
+  process.on('SIGINT', function() {
+    hasher.destroy();
+    process.stdout.write('\n');
+    process.exit(1);
+  });
+}
+
+function edit() {
+  options.announce = util.getAnnounce(options);
+  var output = options.output || options.file;
+  if (path.extname(output) !== '.torrent') output += '.torrent';
+
+  nt.editWrite(options.file, output, options, function(err) {
+    if (err) util.logerr(err);
+    console.log('File written to ' + output.bold);
+  });
+}
+
+function infohash() {
+  nt.readFile(options.file, function(err, result) {
+    if (err) util.logerr(err);
+    return console.log(nt.getInfoHash(result));
+  });
+}
+
+function hashcheck() {
+  nt.readFile(options.file, function(err, result) {
+    if (err) util.logerr(err);
+    var hasher = nt.hashCheck(result, options.dir, options);
+    console.time('Time taken');
+
+    hasher.on('error', util.logerr);
+
+    hasher.on('match', function(index, hash, percent) {
+      util.progress(percent);
+    });
+
+    hasher.on('end', function() {
+      console.log("\nFinished hash checking torrent");
+      console.timeEnd('Time taken');
+    });
+
+    process.on('SIGINT', function() {
+      hasher.destroy();
+      process.stdout.write('\n');
+      process.exit(1);
+    });
+  });
+}
