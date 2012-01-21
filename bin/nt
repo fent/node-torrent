@@ -172,7 +172,8 @@ function make() {
     options.output || options.name || options.files[0];
   if (path.extname(output) !== '.torrent') output += '.torrent';
 
-  var hasher = nt.makeWrite(output, announce, options.dir,
+  var tmpOutput = output + '.tmp';
+  var hasher = nt.makeWrite(tmpOutput, announce, options.dir,
                             options.files, options)
     , infohash
 
@@ -189,9 +190,12 @@ function make() {
   });
 
   var onend = function() {
-    console.log('\nFinished writing torrent at', output.bold);
-    console.log('Info hash:', infohash.bold);
-    console.timeEnd('Time taken');
+    fs.rename(tmpOutput, output, function(err) {
+      if (err) util.logerr(err);
+      console.log('\nFinished writing torrent at', output.bold);
+      console.log('Info hash:', infohash.bold);
+      console.timeEnd('Time taken');
+    });
   };
 
   hasher.on('end', onend);
