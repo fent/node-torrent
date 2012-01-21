@@ -22,7 +22,7 @@ exports.progress = function(percent, color) {
   // print to stdout
   process.stdout.write(' ['.grey + BAR.substr(0, rounded).bold[color] +
                        NOBAR.substr(0, 50 - rounded) + '] '.grey +
-                       percent.bold.cyan + '%'.grey + '\r');
+                       percent.bold + '%'.grey + '\r');
 };
 
 
