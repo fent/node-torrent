@@ -173,7 +173,14 @@ function make() {
   if (path.extname(output) !== '.torrent') output += '.torrent';
 
   var hasher = nt.makeWrite(output, announce, options.dir,
-                            options.files, options);
+                            options.files, options)
+    , infohash
+
+  nt.readStream(hasher, function(err, torrent) {
+    if (err) util.logerr(err);
+    infohash = nt.getInfoHash(torrent);
+  });
+
   console.time('Time taken');
 
   hasher.on('error', util.logerr);
@@ -182,7 +189,8 @@ function make() {
   });
 
   var onend = function() {
-    console.log('\nFinished writing torrent at ' + output.bold);
+    console.log('\nFinished writing torrent at', output.bold);
+    console.log('Info hash:', infohash.bold);
     console.timeEnd('Time taken');
   };
 
@@ -203,7 +211,7 @@ function edit() {
 
   nt.editWrite(options.file, output, options, function(err) {
     if (err) util.logerr(err);
-    console.log('File written to ' + output.bold);
+    console.log('File written to', output.bold);
   });
 }
 
@@ -222,8 +230,14 @@ function hashcheck() {
 
     hasher.on('error', util.logerr);
 
-    hasher.on('progress', function(percent) {
-      util.progress(percent);
+    var color;
+    hasher.on('match', function(i, hash, percent) {
+      util.progress(percent, color);
+    });
+
+    // change progress bar color to read on match error
+    hasher.on('matcherror', function() {
+      color = 'red';
     });
 
     var onend = function() {
