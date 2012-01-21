@@ -60,12 +60,6 @@ parser
     , metavar: 'INT'
     , help: 'Max simultaneous files to open'
     })
-  .option('maxMemory', {
-      abbr: 'm'
-    , full: 'max-memory'
-    , metavar: 'STR'
-    , help: 'Max amount of memory to allocate'
-    })
   .option('dir', {
       abbr: 'd'
     , metavar: 'PATH'
@@ -148,12 +142,6 @@ parser
     , metavar: 'INT'
     , help: 'Max simultaneous files to open'
     })
-  .option('maxMemory', {
-      abbr: 'm'
-    , full: 'max-memory'
-    , metavar: 'STR'
-    , help: 'Max amount of memory to allocate'
-    })
   .option('dir', {
       abbr: 'd'
     , metavar: 'PATH'
@@ -234,7 +222,7 @@ function hashcheck() {
 
     hasher.on('error', util.logerr);
 
-    hasher.on('match', function(index, hash, percent) {
+    hasher.on('progress', function(percent) {
       util.progress(percent);
     });
 

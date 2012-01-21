@@ -116,7 +116,6 @@ Writes a new torrent file. `dir` is root directory of the torrent. The `files` a
 * `private` - Set true if this is a private torrent.
 * `source` - This goes into the `info` dictionary of the torrent. Useful if you want to make a torrent have a unique info hash from a certain tracker.
 * `maxFiles` - Max files to open during piece hashing. Defaults to 500.
-* `maxMemory` - Max memory to allocate during piece hashing. Can be a string that matches `/((\d)+(\.\d+)?)(k|m|g|t)?b?/i` Defaults to 512MB.
 
 `callback` is called with a possible `err`, and a `torrent` object when hashing is finished.
 
@@ -125,7 +124,7 @@ Writes a new torrent file. `dir` is root directory of the torrent. The `files` a
 * 'data': function (data { }`
 Bencoded raw torrent data that can be written to a file.
 
-* 'percent' `function (percent) { }`
+* 'progress' `function (percent) { }`
 Whenever a piece is hashed, will emit a percentage that can be used to track progress.
 
 * 'error' `function (err) { }`
@@ -166,8 +165,11 @@ It returns an event emitter that emits the following events:
 * 'ready' `function () { }`
 Emitter is ready to start hashing.
 
-* 'hash' `function (index, hash, percent, file, position, length) { }`
-Emitted when a piece is hashed along with hash position and source. Percent represents that number of pieces hashed so far.
+* 'progress' `function (percent) { }`
+Emits the progress calculated by amount of bytes read from files.
+
+* 'hash' `function (index, hash, file, position, length) { }`
+Emitted when a piece is hashed along with hash position and source.
 
 * 'match' `function (index, hash, percentMatched, file, position, length) { }`
 Emitted when a piece matches with its `index`, the piece, and the percentage of pieces matched so far.
