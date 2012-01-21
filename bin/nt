@@ -193,12 +193,15 @@ function make() {
     util.progress(percent);
   });
 
-  hasher.on('end', function() {
-    console.log("\nFinished writing torrent at " + output.bold);
+  var onend = function() {
+    console.log('\nFinished writing torrent at ' + output.bold);
     console.timeEnd('Time taken');
-  });
+  };
+
+  hasher.on('end', onend);
 
   process.on('SIGINT', function() {
+    hasher.removeListener('end', onend);
     hasher.destroy();
     process.stdout.write('\n');
     process.exit(1);
@@ -235,12 +238,15 @@ function hashcheck() {
       util.progress(percent);
     });
 
-    hasher.on('end', function() {
-      console.log("\nFinished hash checking torrent");
+    var onend = function() {
+      console.log('\nFinished hash checking torrent');
       console.timeEnd('Time taken');
-    });
+    };
+
+    hasher.on('end', onend);
 
     process.on('SIGINT', function() {
+      hasher.removeListener('end', onend);
       hasher.destroy();
       process.stdout.write('\n');
       process.exit(1);
