@@ -189,22 +189,21 @@ function make() {
     util.progress(percent);
   });
 
-  var onend = function() {
+  hasher.on('end', function() {
     fs.rename(tmpOutput, output, function(err) {
       if (err) util.logerr(err);
       console.log('\nFinished writing torrent at', output.bold);
       console.log('Info hash:', infohash.bold);
       console.timeEnd('Time taken');
     });
-  };
-
-  hasher.on('end', onend);
+  });
 
   process.on('SIGINT', function() {
-    hasher.removeListener('end', onend);
-    hasher.destroy();
-    process.stdout.write('\n');
-    process.exit(1);
+    fs.unlink(tmpOutput, function(err) {
+      if (err) util.logerr(err);
+      process.stdout.write('\n');
+      process.exit(1);
+    });
   });
 }
 
@@ -212,10 +211,14 @@ function edit() {
   options.announce = util.getAnnounce(options);
   var output = options.output || options.file;
   if (path.extname(output) !== '.torrent') output += '.torrent';
+  var tmpOutput = output + '.tmp';
 
-  nt.editWrite(options.file, output, options, function(err) {
+  nt.editWrite(options.file, tmpOutput, options, function(err) {
     if (err) util.logerr(err);
-    console.log('File written to', output.bold);
+    fs.rename(tmpOutput, output, function(err) {
+      if (err) util.logerr(err);
+      console.log('File written to', output.bold);
+    });
   });
 }
 
@@ -244,16 +247,12 @@ function hashcheck() {
       color = 'red';
     });
 
-    var onend = function() {
+    hasher.on('end', function() {
       console.log('\nFinished hash checking torrent');
       console.timeEnd('Time taken');
-    };
-
-    hasher.on('end', onend);
+    });
 
     process.on('SIGINT', function() {
-      hasher.removeListener('end', onend);
-      hasher.destroy();
       process.stdout.write('\n');
       process.exit(1);
     });
