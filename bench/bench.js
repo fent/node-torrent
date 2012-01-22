@@ -1,56 +1,77 @@
-var exec = require('child_process').exec,
-    path = require('path'),
-      fs = require('fs'),
- uubench = require('uubench');
+/**
+ * Benchmarks nt against mktorrent
+ * Run with `node bench.js <file>`
+ */
+
+var spawn = require('child_process').spawn
+  , path = require('path')
+  , fs   = require('fs')
+
+if (process.argv.length < 3) {
+  console.log('Must provide file');
+  process.exit(1);
+}
 
 
-var file = 'ChipCheezum-Uncharted2Episode15HD547.mp4',
- options = {
-    cwd: __dirname,
-    maxBuffer: 1 << 20
-  };
-
-var suite = new uubench.Suite({
-  iterations: 1,
-  start: function() {
-    console.log('starting...');
-  },
-  result: function(name, stats) {
-    console.log(name + ": " + stats.elapsed/stats.iterations);
-  },
-  done: function() {
-    console.log("finished");
+var nt_output = 'nt.torrent'
+  , mktorrent_output = 'mktorrent.torrent'
+  , options = {
+    cwd: __dirname
+  , maxBuffer: 1 << 30
   }
-});
+  , file = process.argv[2]
 
-var n1 = 1;
-suite.bench('nt', function(next) {
-  var output = 'nt_' + n1++ + '.torrent';
 
-  if (path.existsSync(output)) {
-    fs.unlinkSync(output);
-  }
+// check file
+if (!path.existsSync(file)) {
+  console.log('Does not exist:', file);
+  process.exit(1);
+}
 
-  exec('nt make -a \'http://whatever.com\' -o ' + output + ' ' + file, 
-    options, function(err) {
-      if (err) throw err;
-      next();
-    })
-});
+// cleanaup possible previous test
+cleanup(nt_output);
+cleanup(mktorrent_output);
 
-var n2 = 1;
-suite.bench('mktorrent', function(next) {
-  var output = 'mktorrent_' + n2++ + '.torrent';
+function cleanup(file) {
+  if (path.existsSync(file)) fs.unlinkSync(file);
+}
 
-  if (path.existsSync(output)) {
-    fs.unlinkSync(output);
-  }
 
-  exec('mktorrent -a \'http://whatever.com\' -o ' + output + ' ' + file, 
-    options, function(err) {
-      if (err) throw err;
-      next();
-    });
-});
+// nt
+function nt() {
+  console.time('nt');
 
-suite.run();
+  var child = spawn('nt', ['make', '-a', 'http://whatever.com',
+                          '-o', nt_output, file], options); 
+
+  child.stderr.on('data', function(data) {
+    throw new Error(data.toString());
+  });
+
+  child.on('exit', function() {
+    console.timeEnd('nt');
+    mktorrent();
+  });
+}
+
+
+// mktorrent
+function mktorrent() {
+  console.time('mktorrent');
+  var child = spawn('mktorrent', ['-a', 'http://whatever.com',
+                                  '-o', mktorrent_output, file], options); 
+  
+  child.stderr.on('data', function(data) {
+    throw new Error(data.toString());
+  });
+
+  child.on('exit', function() {
+    console.timeEnd('mktorrent');
+    console.log('Finished');
+  });
+}
+
+
+// start
+console.log('Starting');
+nt();
