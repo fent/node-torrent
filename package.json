@@ -28,7 +28,8 @@
     "request": "2.9.x",
     "underscore": "1.3.x",
     "memorystream": "0.0.x",
-    "ordered-emitter": "0.1.x"
+    "ordered-emitter": "0.1.x",
+    "streamspeed": "0.1.x"
   },
   "devDependencies": {
     "vows": ">=0.5.11",
