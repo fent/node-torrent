@@ -11,7 +11,7 @@ var BAR   = '♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥�
  * Prints a progress bar at the given percent
  * @param (number) percent
  */
-exports.progress = function(percent, color) {
+exports.progress = function(percent, speed, color) {
   color = color || 'green';
   var rounded = Math.round(percent / 2);
 
@@ -22,7 +22,7 @@ exports.progress = function(percent, color) {
   // print to stdout
   process.stdout.write(' ['.grey + BAR.substr(0, rounded).bold[color] +
                        NOBAR.substr(0, 50 - rounded) + '] '.grey +
-                       percent.bold + '%'.grey + '\r');
+                       percent.bold + '%'.grey + ' ' + speed.bold + '  \r');
 };
 
 
