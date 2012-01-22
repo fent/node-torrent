@@ -121,7 +121,7 @@ Writes a new torrent file. `dir` is root directory of the torrent. The `files` a
 
 `make` returns a ReadableStream that also emits `error` events and has `.pause()` and `.resume()` like a regular readable stream. Here are all of the events it emits:
 
-* 'data': function (data { }`
+* 'data': `function (data) { }`
 Bencoded raw torrent data that can be written to a file.
 
 * 'progress' `function (percent, speed, avgSpeed) { }`
