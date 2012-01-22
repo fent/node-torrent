@@ -158,6 +158,7 @@ var options = parser.parse()
   , fs      = require('fs')
   , path    = require('path')
   , colors  = require('colors')
+  , ss      = require('streamspeed')
   , nt      = require('..')
   , util    = require('./util')
 
@@ -185,8 +186,8 @@ function make() {
   console.time('Time taken');
 
   hasher.on('error', util.logerr);
-  hasher.on('progress', function(percent) {
-    util.progress(percent);
+  hasher.on('progress', function(percent, speed, avg) {
+    util.progress(percent, ss.toHuman(avg, 's'));
   });
 
   hasher.on('end', function() {
@@ -237,9 +238,13 @@ function hashcheck() {
 
     hasher.on('error', util.logerr);
 
-    var color;
+    var color, avg = 0;
+    hasher.on('progress', function(percent, speed, a) {
+      avg = a;
+    });
+
     hasher.on('match', function(i, hash, percent) {
-      util.progress(percent, color);
+      util.progress(percent, ss.toHuman(avg), color);
     });
 
     // change progress bar color to read on match error

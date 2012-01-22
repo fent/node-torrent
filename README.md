@@ -124,8 +124,8 @@ Writes a new torrent file. `dir` is root directory of the torrent. The `files` a
 * 'data': function (data { }`
 Bencoded raw torrent data that can be written to a file.
 
-* 'progress' `function (percent) { }`
-Whenever a piece is hashed, will emit a percentage that can be used to track progress.
+* 'progress' `function (percent, speed, avgSpeed) { }`
+Whenever a piece is hashed, will emit a percentage that can be used to track progress. `speed` and `avgSpeed` are in bytes.
 
 * 'error' `function (err) { }`
 If there is an error this will be emitted. Most likely IO error.
@@ -165,8 +165,8 @@ It returns an event emitter that emits the following events:
 * 'ready' `function () { }`
 Emitter is ready to start hashing.
 
-* 'progress' `function (percent) { }`
-Emits the progress calculated by amount of bytes read from files.
+* 'progress' `function (percent, speed, avgSpeed) { }`
+Emits the progress calculated by amount of bytes read from files. `speed` and `avgSpeed` are in bytes.
 
 * 'hash' `function (index, hash, file, position, length) { }`
 Emitted when a piece is hashed along with hash position and source.
