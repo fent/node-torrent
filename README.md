@@ -189,6 +189,8 @@ The emitter also has `pause()`, `resume()`, `destroy()` and `start()` functions.
 # Command Line
 nt can be ran from the command line too! Install it with the `-g` flag with npm and use it with the command `nt`.
 
+![example img](http://i.imgur.com/y47Sc.png)
+
 
 # Install
 
