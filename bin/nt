@@ -190,7 +190,11 @@ function make() {
     util.progress(percent, ss.toHuman(avg, 's'));
   });
 
+  // something so node doesn't exit
+  var iid = setInterval(function() {}, 500000);
+
   hasher.on('end', function() {
+    clearInterval(iid);
     fs.rename(tmpOutput, output, function(err) {
       if (err) util.logerr(err);
       console.log('\nFinished writing torrent at', output.bold);
@@ -199,12 +203,18 @@ function make() {
     });
   });
 
+  // clean up on forced exit
   process.on('SIGINT', function() {
+    clearInterval(iid);
     fs.unlink(tmpOutput, function(err) {
       if (err) util.logerr(err);
       process.stdout.write('\n');
       process.exit(1);
     });
+  });
+
+  process.on('SIGTSTP', function() {
+    hasher.toggle();
   });
 }
 
@@ -244,7 +254,7 @@ function hashcheck() {
     });
 
     hasher.on('match', function(i, hash, percent) {
-      util.progress(percent, ss.toHuman(avg), color);
+      util.progress(percent, ss.toHuman(avg, 's'), color);
     });
 
     // change progress bar color to read on match error
@@ -252,14 +262,23 @@ function hashcheck() {
       color = 'red';
     });
 
+    // something so node doesn't exit
+    var iid = setInterval(function() {}, 500000);
+
     hasher.on('end', function() {
+      clearInterval(iid);
       console.log('\nFinished hash checking torrent');
       console.timeEnd('Time taken');
     });
 
     process.on('SIGINT', function() {
+      clearInterval(iid);
       process.stdout.write('\n');
       process.exit(1);
+    });
+
+    process.on('SIGTSTP', function() {
+      hasher.toggle();
     });
   });
 }
