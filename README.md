@@ -115,7 +115,7 @@ Writes a new torrent file. `dir` is root directory of the torrent. The `files` a
 * `pieceLength` - How to break up the pieces. Must be an integer `n` that says piece length will be `2^n`. Default is 256KB, or 2^18.
 * `private` - Set true if this is a private torrent.
 * `source` - This goes into the `info` dictionary of the torrent. Useful if you want to make a torrent have a unique info hash from a certain tracker.
-* `maxFiles` - Max files to open during piece hashing. Defaults to 500.
+* `maxFiles` - Max files to open during piece hashing. Defaults to 250.
 
 `callback` is called with a possible `err`, and a `torrent` object when hashing is finished.
 
@@ -158,7 +158,7 @@ Shortcut that pumps the returned readable stream from `edit` into a writable str
 
 ### hashCheck(torrent, dir, [options])
 
-Hash check a directory where a torrent's files should be. `torrent` must be a torrent object. Options can have `maxMemory` and `maxFiles`. Which default to 512 MB and 500 respectively.
+Hash check a directory where a torrent's files should be. `torrent` must be a torrent object. Options can have `maxFiles`. Which defaults to 250.
 
 It returns an event emitter that emits the following events:
 
