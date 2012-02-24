@@ -39,11 +39,6 @@ vows.describe('Edit')
 
       'adding a source and writing': {
         topic: function() {
-          // delete file from previous test
-          if (path.existsSync(copy)) {
-            fs.unlinkSync(copy);
-          }
-
           var rs = nt.editWrite(file, copy, options2);
           var cb = this.callback;
           rs.on('end', function(torrent) {
@@ -61,6 +56,7 @@ vows.describe('Edit')
             var cb = this.callback;
 
             nt.readFile(copy, function(err, result) {
+              fs.unlinkSync(copy);
               cb(err, torrent, result);
             });
           },

@@ -47,19 +47,16 @@ vows.describe('Make')
 
     'Make and write a torrent file with just the folder': {
       topic: function() {
-        // delete file from previous test
-        if (path.existsSync(output)) {
-          fs.unlinkSync(output);
-        }
-
         var rs = nt.makeWrite(output, tracker, folder);
 
         var cb = this.callback;
         rs.on('error', cb);
-        //nt.readStream(rs, cb);
 
         rs.on('end', function() {
-          nt.readFile(output, cb);
+          nt.readFile(output, function(err, torrent) {
+            fs.unlinkSync(output);
+            cb(err, torrent);
+          });
         });
       },
 
