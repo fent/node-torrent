@@ -1,16 +1,16 @@
-var      nt = require('..'),
-       vows = require('vows'),
-       nock = require('nock'),
+var nt     = require('..')
+  , vows   = require('vows')
+  , assert = require('assert')
+  , path   = require('path')
+  , fs     = require('fs')
+  , url    = require('url')
+  , nock   = require('nock')
 
-     assert = require('assert'),
-         fs = require('fs'),
-        url = require('url')
-
-      file1 = __dirname + '/torrents/ubuntu.torrent';
-      file2 = __dirname + '/torrents/click.jpg.torrent',
-      file3 = __dirname + '/torrents/virtualbox.torrent',
-remotefile3 = 'http://www.mininova.org/get/2886852',
-      file4 = __dirname + '/torrents/chipcheezum.torrent';
+var file1 = path.join(__dirname, 'torrents', 'ubuntu.torrent')
+  , file2 = path.join(__dirname,'torrents', 'click.jpg.torrent')
+  , file3 = path.join(__dirname, 'torrents', 'virtualbox.torrent')
+  , remotefile3 = 'http://www.mininova.org/get/2886852'
+  , file4 = path.join(__dirname, 'torrents', 'chipcheezum.torrent')
 
 
 // mock request to remote file

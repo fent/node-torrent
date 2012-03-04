@@ -1,19 +1,14 @@
-var   nt = require('..'),
-    vows = require('vows'),
+var nt     = require('..')
+  , vows   = require('vows')
+  , assert = require('assert')
+  , path   = require('path')
+  , fs     = require('fs')
 
-  assert = require('assert'),
-    path = require('path'),
-      fs = require('fs');
 
-
-var file = __dirname + '/torrents/click.jpg.torrent',
-    copy = __dirname + '/result/click.copy.torrent',
-options1 = {
-  announceList: false
-},
-options2 = {
-  source: 'secret'
-};
+var file = path.join(__dirname, 'torrents', 'click.jpg.torrent')
+  , copy = path.join(__dirname, 'result', 'click.copy.torrent')
+  , options1 = { announceList: false }
+  , options2 = { source: 'secret' }
 
 
 vows.describe('Edit')
