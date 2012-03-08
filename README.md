@@ -15,7 +15,7 @@ nt.read('path/to/file.torrent', function(err, torrent) {
 });
 
 
-// if remote file is given, it will be downloaded
+// if url is given, it will be downloaded
 nt.read('http://torrents.me/download.php?id=2342', function(err, torrent) {
   if (err) throw err;
   console.log(torrent);
