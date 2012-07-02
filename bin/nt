@@ -99,7 +99,7 @@ parser
   .option('private', {
       abbr: 'p'
     , flag: true
-    , help: 'Make this a private torrent'
+    , help: 'Toggle this torrent\'s private mode'
     })
   .option('source', {
       abbr: 's'
@@ -109,7 +109,6 @@ parser
   .option('output', {
       abbr: 'o'
     , metavar: 'PATH'
-    , required: true
     , help: 'Where to write the output file. Default: original torrent'
     })
   .option('file', {
@@ -180,7 +179,7 @@ function make() {
 
   nt.readStream(hasher, function(err, torrent) {
     if (err) util.logerr(err);
-    infohash = nt.getInfoHash(torrent);
+    infohash = torrent.infoHash();
   });
 
   console.time('Time taken');
@@ -224,26 +223,68 @@ function edit() {
   if (path.extname(output) !== '.torrent') output += '.torrent';
   var tmpOutput = output + '.tmp';
 
-  nt.editWrite(options.file, tmpOutput, options, function(err) {
+  nt.read(options.file, function(err, torrent) {
     if (err) util.logerr(err);
-    fs.rename(tmpOutput, output, function(err) {
-      if (err) util.logerr(err);
-      console.log('File written to', output.bold);
+
+    // edit torrent object
+    var metadata = torrent.metadata;
+
+    if (options.announce) {
+      metadata.announce = options.announce;
+    }
+
+    if (options.announceList) {
+      metadata.announceList = options.announceList;
+    }
+
+    if (options.comment) {
+      metadata.comment = options.comment;
+    }
+
+    if (options.name && metadata.info.files.length) {
+      metadata.info.name = options.name;
+    }
+
+    if (options.private) {
+      if (metadata.info.private) {
+        delete metadata.info.private;
+      } else {
+        metadata.info.private = 1;
+      }
+    }
+
+    if (options.source) {
+      metadata.info.source = options.source;
+    }
+
+    // write new torrent file
+    var ws = torrent.createWriteStream(tmpOutput)
+
+    ws.on('error', util.logerr);
+    ws.on('close', function() {
+      fs.rename(tmpOutput, output, function(err) {
+        if (err) util.logerr(err);
+
+        console.log('File written to', output.bold);
+      });
     });
+
   });
 }
 
 function infohash() {
-  nt.readFile(options.file, function(err, result) {
+  nt.readFile(options.file, function(err, torrent) {
     if (err) util.logerr(err);
-    return console.log(nt.getInfoHash(result));
+
+    console.log(torrent.infoHash());
   });
 }
 
 function hashcheck() {
-  nt.readFile(options.file, function(err, result) {
+  nt.readFile(options.file, function(err, torrent) {
     if (err) util.logerr(err);
-    var hasher = nt.hashCheck(result, options.dir, options);
+
+    var hasher = torrent.hashCheck(options.dir, options);
     console.time('Time taken');
 
     hasher.on('error', util.logerr);

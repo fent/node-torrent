@@ -9,6 +9,7 @@ var BAR   = '♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥�
 
 /**
  * Prints a progress bar at the given percent
+ *
  * @param (number) percent
  */
 exports.progress = function(percent, speed, color) {
@@ -28,6 +29,7 @@ exports.progress = function(percent, speed, color) {
 
 /**
  * Print any errors to stdout and exit the script
+ *
  * @param (string) err
  */
 exports.logerr = function(err) {
@@ -39,6 +41,7 @@ exports.logerr = function(err) {
 /**
  * Separates announce list from command line arguments into
  * main announce URL and additional announce list.
+ *
  * @param (Object) options
  * @return (?string) The main announce URL.
  */
