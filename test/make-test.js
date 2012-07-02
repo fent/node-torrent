@@ -47,12 +47,12 @@ vows.describe('Make')
 
     'Make and write a torrent file with just the folder': {
       topic: function() {
-        var rs = nt.makeWrite(output1, tracker, folder);
+        var ws = nt.makeWrite(output1, tracker, folder);
 
         var cb = this.callback;
-        rs.on('error', cb);
+        ws.on('error', cb);
 
-        rs.on('end', function() {
+        ws.on('close', function() {
           nt.readFile(output1, function(err, torrent) {
             fs.unlinkSync(output1);
             cb(err, torrent);

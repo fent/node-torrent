@@ -95,7 +95,7 @@ Makes a new torrent. `dir` is root directory of the torrent. The `files` array w
 
 ### makeWrite(output, annlounce, dir, [files], [options], [callback(err, torrent)])
 
-A shortcut that pumps the returned readable stream from `make` into a writable stream that points to the file `output`. Returns readable stream.
+A shortcut that pumps the returned readable stream from `make` into a writable stream that points to the file `output`. Returns the writable stream.
 
 
 ## Torrent
