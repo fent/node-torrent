@@ -3,10 +3,12 @@ var nt     = require('..')
   , assert = require('assert')
   , path   = require('path')
   , fs     = require('fs')
+  ;
 
 
 var file = path.join(__dirname, 'torrents', 'files.torrent')
   , folder = path.join(__dirname, 'files')
+  ;
 
 
 vows.describe('Hash Check')
@@ -15,9 +17,9 @@ vows.describe('Hash Check')
       topic: function() {
         var cb = this.callback;
 
-        nt.readFile(file, function(err, result) {
+        nt.readFile(file, function(err, torrent) {
           if (err) throw err;
-          var hasher = nt.hashCheck(result, folder);
+          var hasher = torrent.hashCheck(folder);
 
           hasher.on('matcherror', function(i, file, pos, length) {
             throw new Error('Could not match file ' + file);

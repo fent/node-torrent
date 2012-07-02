@@ -3,13 +3,17 @@ var nt     = require('..')
   , assert = require('assert')
   , path   = require('path')
   , fs     = require('fs')
+  ;
 
 
-var output = path.join(__dirname, 'result', 'new.torrent')
+var file1 = path.join(__dirname, 'torrents', 'ubuntu.torrent')
+  , output1 = path.join(__dirname, 'result', 'new.torrent')
+  , output2 = path.join(__dirname, 'result', 'ubuntu.copy.torrent')
   , tracker = 'http://faketracker.com'
   , folder = path.join(__dirname, 'files')
   , files = ['click.jpg']
   , options = { pieceLength: 18 /* 256 KB */, private: true }
+  ;
 
 
 vows.describe('Make')
@@ -21,7 +25,7 @@ vows.describe('Make')
 
       'Info hash matches torrent previously made by mktorrent':
         function(torrent) {
-          assert.equal(nt.getInfoHash(torrent),
+          assert.equal(torrent.infoHash(),
               '2fff646b166f37f4fd131778123b25a01639e0b3');
         }
     },
@@ -36,29 +40,59 @@ vows.describe('Make')
       },
 
       'Info hash matches': function(err, torrent) {
-        assert.equal(nt.getInfoHash(torrent),
+        assert.equal(torrent.infoHash(),
                      'c4397e42eb43c9801017a709eb7bce5e3b27aaf9');
       }
     },
 
     'Make and write a torrent file with just the folder': {
       topic: function() {
-        var rs = nt.makeWrite(output, tracker, folder);
+        var rs = nt.makeWrite(output1, tracker, folder);
 
         var cb = this.callback;
         rs.on('error', cb);
 
         rs.on('end', function() {
-          nt.readFile(output, function(err, torrent) {
-            fs.unlinkSync(output);
+          nt.readFile(output1, function(err, torrent) {
+            fs.unlinkSync(output1);
             cb(err, torrent);
           });
         });
       },
 
       'Info hash matches': function(torrent) {
-        assert.equal(nt.getInfoHash(torrent),
+        assert.equal(torrent.infoHash(),
                      'c4397e42eb43c9801017a709eb7bce5e3b27aaf9');
+      }
+    },
+
+    'Read': {
+      topic: function() {
+        nt.read(file1, this.callback);
+      },
+
+      'Info hash from read file matches': function(torrent) {
+        assert.isObject(torrent.metadata);
+        assert.equal(torrent.infoHash(),
+          'a38d02c287893842a32825aa866e00828a318f07');
+      },
+
+      'then write new torrent file': {
+        topic: function(torrent) {
+          var callback = this.callback;
+          var ws = torrent.createWriteStream(output2);
+
+          ws.on('error', callback);
+          ws.on('close', function() {
+            nt.read(output2, callback);
+          });
+        },
+
+        'Info hash matches on new file': function(torrent) {
+          assert.isObject(torrent.metadata);
+          assert.equal(torrent.infoHash(),
+            'a38d02c287893842a32825aa866e00828a318f07');
+        }
       }
     }
   })
