@@ -47,16 +47,12 @@ vows.describe('Make')
 
     'Make and write a torrent file with just the folder': {
       topic: function() {
-        var ws = nt.makeWrite(output1, tracker, folder);
+        var rs = nt.makeWrite(output1, tracker, folder);
+        var callback = this.callback;
 
-        var cb = this.callback;
-        ws.on('error', cb);
-
-        ws.on('close', function() {
-          nt.readFile(output1, function(err, torrent) {
-            fs.unlink(output1);
-            cb(err, torrent);
-          });
+        nt.read(rs, function(err, torrent) {
+          fs.unlink(output1);
+          callback(err, torrent);
         });
       },
 
@@ -79,15 +75,12 @@ vows.describe('Make')
 
       'then write new torrent file': {
         topic: function(torrent) {
+          var rs = torrent.createWriteStream(output2);
           var callback = this.callback;
-          var ws = torrent.createWriteStream(output2);
 
-          ws.on('error', callback);
-          ws.on('close', function() {
-            nt.read(output2, function(err, torrent) {
-              fs.unlink(output2);
-              callback(err, torrent);
-            });
+          nt.read(rs, function(err, torrent) {
+            fs.unlink(output2);
+            callback(err, torrent);
           });
         },
 
