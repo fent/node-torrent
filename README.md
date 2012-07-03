@@ -95,7 +95,7 @@ Makes a new torrent. `dir` is root directory of the torrent. The `files` array w
 
 ### makeWrite(output, annlounce, dir, [files], [options], [callback(err, torrent)])
 
-A shortcut that pumps the returned readable stream from `make` into a writable stream that points to the file `output`. Returns the writable stream.
+A shortcut that pumps the returned readable stream from `make` into a writable stream that points to the file `output`. Returns a Hasher object.
 
 
 ## Torrent
@@ -131,11 +131,11 @@ Get a torrent's info hash.
 
 ### Torrent#createReadStream()
 
-Creates a ReadableStream that emits raw bencoded data for this torrent.
+Creates a ReadableStream that emits raw bencoded data for this torrent. Returns the readable stream.
 
 ### Torrent#createWriteStream(filepath)
 
-Shortcut that pipes the stream from `Torrent#createReadStream()` to a WritableStream.
+Shortcut that pipes the stream from `Torrent#createReadStream()` to a WritableStream. Returns the readable stream.
 
 ### Torrent#hashCheck(dir, [options])
 
