@@ -54,7 +54,7 @@ vows.describe('Make')
 
         ws.on('close', function() {
           nt.readFile(output1, function(err, torrent) {
-            fs.unlinkSync(output1);
+            fs.unlink(output1);
             cb(err, torrent);
           });
         });
@@ -84,7 +84,10 @@ vows.describe('Make')
 
           ws.on('error', callback);
           ws.on('close', function() {
-            nt.read(output2, callback);
+            nt.read(output2, function(err, torrent) {
+              fs.unlink(output2);
+              callback(err, torrent);
+            });
           });
         },
 
