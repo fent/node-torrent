@@ -3,9 +3,12 @@
  * Run with `node bench.js <file>`
  */
 
-var spawn = require('child_process').spawn
-  , path = require('path')
-  , fs   = require('fs')
+var spawn      = require('child_process').spawn
+  , path       = require('path')
+  , fs         = require('fs')
+  , existsSync = fs.existsSync || path.existsSync
+  ;
+
 
 if (process.argv.length < 3) {
   console.log('Must provide file');
@@ -23,7 +26,7 @@ var nt_output = 'nt.torrent'
 
 
 // check file
-if (!path.existsSync(file)) {
+if (!existsSync(file)) {
   console.log('Does not exist:', file);
   process.exit(1);
 }
@@ -33,7 +36,7 @@ cleanup(nt_output);
 cleanup(mktorrent_output);
 
 function cleanup(file) {
-  if (path.existsSync(file)) fs.unlinkSync(file);
+  if (existsSync(file)) fs.unlinkSync(file);
 }
 
 
