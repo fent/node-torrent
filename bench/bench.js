@@ -23,7 +23,7 @@ var nt_output = 'nt.torrent'
 
 
 // check file
-if (!path.existsSync(file)) {
+if (!fs.existsSync(file)) {
   console.log('Does not exist:', file);
   process.exit(1);
 }
@@ -33,7 +33,7 @@ cleanup(nt_output);
 cleanup(mktorrent_output);
 
 function cleanup(file) {
-  if (path.existsSync(file)) fs.unlinkSync(file);
+  if (fs.existsSync(file)) fs.unlinkSync(file);
 }
 
 
