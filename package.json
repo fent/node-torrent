@@ -9,7 +9,7 @@
   },
   "author": "Roly Fentanes (https://github.com/fent)",
   "main": "./lib/index.js",
-  "bin": "./bin/nt",
+  "bin": { "nt": "./bin/nt.js" },
   "directories": {
     "lib": "./lib"
   },
