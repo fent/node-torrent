@@ -43,7 +43,7 @@ nt.makeWrite('outputfile', 'http://announce.me', __dirname + '/files',
 var hasher = nt.hashCheck(file);
 
 var p;
-hahser.on('match', function(i, hash, percent) {
+hasher.on('match', function(i, hash, percent) {
   p = percent;
 });
 
