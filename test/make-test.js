@@ -1,19 +1,17 @@
-var nt     = require('..')
-  , vows   = require('vows')
-  , assert = require('assert')
-  , path   = require('path')
-  , fs     = require('fs')
-  ;
+var nt     = require('..');
+var vows   = require('vows');
+var assert = require('assert');
+var path   = require('path');
+var fs     = require('fs');
 
 
-var file1 = path.join(__dirname, 'torrents', 'ubuntu.torrent')
-  , output1 = path.join(__dirname, 'result', 'new.torrent')
-  , output2 = path.join(__dirname, 'result', 'ubuntu.copy.torrent')
-  , tracker = 'http://faketracker.com'
-  , folder = path.join(__dirname, 'files')
-  , files = ['click.jpg']
-  , options = { pieceLength: 18 /* 256 KB */, private: true }
-  ;
+var file1 = path.join(__dirname, 'torrents', 'ubuntu.torrent');
+var output1 = path.join(__dirname, 'result', 'new.torrent');
+var output2 = path.join(__dirname, 'result', 'ubuntu.copy.torrent');
+var tracker = 'http://faketracker.com';
+var folder = path.join(__dirname, 'files');
+var files = ['click.jpg'];
+var options = { pieceLength: 18 /* 256 KB */, private: true };
 
 
 vows.describe('Make')

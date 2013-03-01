@@ -1,14 +1,11 @@
-var nt     = require('..')
-  , vows   = require('vows')
-  , assert = require('assert')
-  , path   = require('path')
-  , fs     = require('fs')
-  ;
+var nt     = require('..');
+var vows   = require('vows');
+var assert = require('assert');
+var path   = require('path');
 
 
-var file = path.join(__dirname, 'torrents', 'files.torrent')
-  , folder = path.join(__dirname, 'files')
-  ;
+var file = path.join(__dirname, 'torrents', 'files.torrent');
+var folder = path.join(__dirname, 'files');
 
 
 vows.describe('Hash Check')
