@@ -55,29 +55,29 @@ hasher.on('end', function() {
 
 # API
 
-### read(file, [requestOptions], callback(err, Torrent))
+### read(file, [requestOptions], callback(Error, Torrent))
 
 Reads a local file, remote file, or a readable stream. If `file` is a URL, it will be downloaded. `requestOptions` is optional, and can be used to customize the http request made by [request](https://github.com/mikeal/request). Returns readable stream.
 
-### readURL(url, [requestOptions], callback(err, Torrent))
+### readURL(url, [requestOptions], callback(Error, Torrent))
 
 Downloads a torrent from a URL. `requestOptions` optionally can be used to customize the request. Returns readable stream.
 
-### readFile(file, callback(err, Torrent))
+### readFile(file, callback(Error, Torrent))
 
 Reads a torrent file. Returns readable stream.
 
-### readStream(readstream, callback(err, Torrent))
+### readStream(readstream, callback(Error, Torrent))
 
 Reads torrent data from a readable stream. Returns the readable stream.
 
-### readRaw(data, callback(err, Torrent))
+### readRaw(data, callback(Error, Torrent))
 
 Parses raw torrent data. `data` must be a buffer.
 
 An error can be returned if the torrent is formatted incorrectly. Does not check if the dictonaries are listed alphabetically. Refer to the [BitTorrent Specification](http://wiki.theory.org/BitTorrentSpecification) for more info on torrent metainfo.
 
-### make(announceURL, dir, [files], [options], [callback(err, Torrent)])
+### make(announceURL, dir, [files], [options], [callback(Error, Torrent)])
 
 Makes a new torrent. `dir` is root directory of the torrent. The `files` array will relatively read files from there. If files is omitted, it implicitly adds all of the files in `dir` to the torrent, including those in subdirectories. `options` can have the following:
 
@@ -89,11 +89,11 @@ Makes a new torrent. `dir` is root directory of the torrent. The `files` array w
 * `source` - This goes into the `info` dictionary of the torrent. Useful if you want to make a torrent have a unique info hash from a certain tracker.
 * `maxFiles` - Max files to open during piece hashing. Defaults to 250.
 
-`callback` is called with a possible `err`, and a `Torrent` object when hashing is finished.
+`callback` is called with a possible `Error`, and a `Torrent` object when hashing is finished.
 
 `make` returns a Hasher object that emits raw bencoded `data` events.
 
-### makeWrite(output, annlounce, dir, [files], [options], [callback(err, torrent)])
+### makeWrite(output, annlounce, dir, [files], [options], [callback(Error, Torrent)])
 
 A shortcut that pumps the returned readable stream from `make` into a writable stream that points to the file `output`. Returns a Hasher object.
 

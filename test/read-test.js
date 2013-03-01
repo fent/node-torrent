@@ -1,22 +1,20 @@
-var nt     = require('..')
-  , vows   = require('vows')
-  , assert = require('assert')
-  , path   = require('path')
-  , fs     = require('fs')
-  , url    = require('url')
-  , nock   = require('nock')
-  ;
+var nt     = require('..');
+var vows   = require('vows');
+var assert = require('assert');
+var path   = require('path');
+var fs     = require('fs');
+var url    = require('url');
+var nock   = require('nock');
 
 
-var file1 = path.join(__dirname, 'torrents', 'ubuntu.torrent')
-  , file2 = path.join(__dirname,'torrents', 'click.jpg.torrent')
-  , file3 = path.join(__dirname, 'torrents', 'virtualbox.torrent')
-  , remotefile3 = 'http://www.mininova.org/get/2886852'
-  , file4 = path.join(__dirname, 'torrents', 'chipcheezum.torrent')
-  ;
+var file1 = path.join(__dirname, 'torrents', 'ubuntu.torrent');
+var file2 = path.join(__dirname,'torrents', 'click.jpg.torrent');
+var file3 = path.join(__dirname, 'torrents', 'virtualbox.torrent');
+var remotefile3 = 'http://www.mininova.org/get/2886852';
+var file4 = path.join(__dirname, 'torrents', 'chipcheezum.torrent');
 
 
-// mock request to remote file
+// Mock request to remote file.
 var parsedUrl = url.parse(remotefile3);
 nock('http://' + parsedUrl.host)
   .get(parsedUrl.pathname)
@@ -59,7 +57,7 @@ vows.describe('Read')
     },
 
 
-    // this torrent was created with mktorrent
+    // This torrent was created with mktorrent.
     'Read a local file': {
       'made by mktorrent': {
         topic: function() {
