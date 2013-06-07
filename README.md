@@ -86,7 +86,7 @@ Makes a new torrent. `dir` is root directory of the torrent. The `files` array w
 * `name` - Can be used only in multi file mode. If not given, defaults to name of directory.
 * `pieceLength` - How to break up the pieces. Must be an integer `n` that says piece length will be `2^n`. Default is 256KB, or 2^18.
 * `private` - Set true if this is a private torrent.
-* `source` - This goes into the `info` dictionary of the torrent. Useful if you want to make a torrent have a unique info hash from a certain tracker.
+* `moreInfo` - These go into the `info` dictionary of the torrent. Useful if you want to make a torrent have a unique info hash from a certain tracker.
 * `maxFiles` - Max files to open during piece hashing. Defaults to 250.
 
 `callback` is called with a possible `err`, and a `Torrent` object when hashing is finished.
