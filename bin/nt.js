@@ -44,10 +44,10 @@ parser
     , flag: true
     , help: 'Make this a private torrent'
     })
-  .option('source', {
+  .option('moreInfo', {
       abbr: 's'
     , metavar: 'STR'
-    , help: 'Add source to metainfo'
+    , help: 'Add more info to metainfo'
     })
   .option('output', {
       abbr: 'o'
@@ -101,10 +101,10 @@ parser
     , flag: true
     , help: 'Toggle this torrent\'s private mode'
     })
-  .option('source', {
+  .option('moreInfo', {
       abbr: 's'
     , metavar: 'STR'
-    , help: 'Add source to metainfo'
+    , help: 'Add more info to metainfo'
     })
   .option('output', {
       abbr: 'o'
@@ -325,8 +325,12 @@ function edit() {
       }
     }
 
-    if (options.source) {
-      metadata.info.source = options.source;
+    // add additional moreInfo to info
+    for (var moreKey in options.moreInfo) {
+      // only add moreInfo if it doesn't overwrite info
+      if (!Object.prototype.hasOwnProperty.call(info, moreKey)) {
+        metadata.info[moreKey] = options.moreInfo[moreKey];
+      }
     }
 
     // write new torrent file
