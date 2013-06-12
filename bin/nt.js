@@ -130,6 +130,78 @@ parser
     })
 
 parser
+  .command('pieces')
+  .help('Return piece hashes from torrent')
+  .callback(function() {
+    process.nextTick(pieces);
+  })
+  .option('file', {
+      position: 1
+    , required: true
+    , help: 'Torrent file'
+    })
+
+parser
+  .command('name')
+  .help('Return name from torrent')
+  .callback(function() {
+    process.nextTick(name);
+  })
+  .option('file', {
+      position: 1
+    , required: true
+    , help: 'Torrent file'
+    })
+
+parser
+  .command('announce')
+  .help('Return announce url from torrent')
+  .callback(function() {
+    process.nextTick(announce);
+  })
+  .option('file', {
+      position: 1
+    , required: true
+    , help: 'Torrent file'
+    })
+
+parser
+  .command('announcelist')
+  .help('Return announce-list urls from torrent')
+  .callback(function() {
+    process.nextTick(announcelist);
+  })
+  .option('file', {
+      position: 1
+    , required: true
+    , help: 'Torrent file'
+    })
+
+parser
+  .command('files')
+  .help('Return file paths and lengths from torrent')
+  .callback(function() {
+    process.nextTick(files);
+  })
+  .option('file', {
+      position: 1
+    , required: true
+    , help: 'Torrent file'
+    })
+
+parser
+  .command('urllist')
+  .help('Return web seed urls from torrent')
+  .callback(function() {
+    process.nextTick(urllist);
+  })
+  .option('file', {
+      position: 1
+    , required: true
+    , help: 'Torrent file'
+    })
+
+parser
   .command('hashcheck')
   .help('Hash checks torrent file. If no directory is given, will use cwd')
   .callback(function() {
@@ -277,6 +349,55 @@ function infohash() {
     if (err) util.logerr(err);
 
     console.log(torrent.infoHash());
+  });
+}
+
+function pieces() {
+  nt.readFile(options.file, function(err, torrent) {
+    if (err) util.logerr(err);
+    var piece = 20;
+    var len = torrent.metadata.info.pieces.length / piece;
+    for (var i = 0; i < len; i++)
+      console.log(torrent.metadata.info.pieces.toString('hex', i * piece, (i + 1) * piece));
+  });
+}
+
+function name() {
+  nt.readFile(options.file, function(err, torrent) {
+    if (err) util.logerr(err);
+    console.log(torrent.metadata.info.name);
+  });
+}
+
+function announce() {
+  nt.readFile(options.file, function(err, torrent) {
+    if (err) util.logerr(err);
+    console.log(torrent.metadata.announce);
+  });
+}
+
+function announcelist() {
+  nt.readFile(options.file, function(err, torrent) {
+    if (err) util.logerr(err);
+    if (torrent.metadata.hasOwnProperty('announce-list'))
+      console.log(torrent.metadata['announce-list']);
+  });
+}
+
+function files() {
+  nt.readFile(options.file, function(err, torrent) {
+    if (err) util.logerr(err);
+    var info = torrent.metadata.info;
+    for(var i = 0; info.hasOwnProperty('files') &&  i < info.files.length; i++)
+      console.log(info.files[i].path, info.files[i].length);
+  });
+}
+
+function urllist() {
+  nt.readFile(options.file, function(err, torrent) {
+    if (err) util.logerr(err);
+    for(var i = 0; torrent.metadata.hasOwnProperty('url-list') &&  i < torrent.metadata['url-list'].length; i++)
+      console.log(torrent.metadata['url-list'][i]);
   });
 }
 
