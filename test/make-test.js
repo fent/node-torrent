@@ -38,6 +38,7 @@ vows.describe('Make')
       },
 
       'Info hash matches': function(err, torrent) {
+        if (err) throw err;
         assert.equal(torrent.infoHash(),
                      'c4397e42eb43c9801017a709eb7bce5e3b27aaf9');
       }
