@@ -14,11 +14,11 @@ vows.describe('Hash Check')
       topic: function() {
         var cb = this.callback;
 
-        nt.readFile(file, function(err, torrent) {
+        nt.read(file, function(err, torrent) {
           if (err) throw err;
           var hasher = torrent.hashCheck(folder);
 
-          hasher.on('matcherror', function(i, file, pos, length) {
+          hasher.on('matcherror', function(i, file) {
             throw new Error('Could not match file ' + file);
           });
 
