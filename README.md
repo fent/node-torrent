@@ -15,7 +15,7 @@ nt.read('path/to/file.torrent', function(err, torrent) {
 });
 
 
-// if url is given, it will be downloaded
+// If url is given, it will be downloaded.
 nt.read('http://torrents.me/download.php?id=2342', function(err, torrent) {
   if (err) throw err;
   console.log(torrent.metadata);
@@ -58,22 +58,6 @@ hasher.on('end', function() {
 ### read(file, [requestOptions], callback(Error, Torrent))
 
 Reads a local file, remote file, or a readable stream. If `file` is a URL, it will be downloaded. `requestOptions` is optional, and can be used to customize the http request made by [request](https://github.com/mikeal/request). Returns readable stream.
-
-### readURL(url, [requestOptions], callback(Error, Torrent))
-
-Downloads a torrent from a URL. `requestOptions` optionally can be used to customize the request. Returns readable stream.
-
-### readFile(file, callback(Error, Torrent))
-
-Reads a torrent file. Returns readable stream.
-
-### readStream(readstream, callback(Error, Torrent))
-
-Reads torrent data from a readable stream. Returns the readable stream.
-
-### readRaw(data, callback(Error, Torrent))
-
-Parses raw torrent data. `data` must be a buffer.
 
 An error can be returned if the torrent is formatted incorrectly. Does not check if the dictonaries are listed alphabetically. Refer to the [BitTorrent Specification](http://wiki.theory.org/BitTorrentSpecification) for more info on torrent metainfo.
 
