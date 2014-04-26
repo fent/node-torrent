@@ -89,7 +89,6 @@ vows.describe('Read')
       }
     },
 
-
     'Download a torrent and read it': {
       topic: function() {
         nt.read(remotefile3, this.callback);
