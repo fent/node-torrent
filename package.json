@@ -29,8 +29,8 @@
     "underscore": "~1.5.1"
   },
   "devDependencies": {
-    "vows": "0.5.x",
-    "nock": "0.2.x"
+    "vows": "~0.7.0",
+    "nock": "~0.28.2"
   },
   "licenses": [{
     "type": "MIT",
