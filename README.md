@@ -40,7 +40,7 @@ nt.makeWrite('outputfile', 'http://announce.me', __dirname + '/files',
 ## Hash check a torrent
 
 ```js
-var hasher = nt.hashCheck(file);
+var hasher = torrent.hashCheck(file);
 
 var p;
 hasher.on('match', function(i, hash, percent) {
@@ -119,7 +119,7 @@ Creates a ReadableStream that emits raw bencoded data for this torrent. Returns 
 
 ### Torrent#createWriteStream(filepath)
 
-Shortcut that pipes the stream from `Torrent#createReadStream()` to a WritableStream. Returns the readable stream.
+Shortcut that pipes the stream from `Torrent#createReadStream()` to a writable file stream. Returns the readable stream.
 
 ### Torrent#hashCheck(dir, [options])
 
@@ -128,7 +128,7 @@ Hash checks torrent against files in `dir`. Returns a Hasher object. `options` h
 
 ## Hasher
 
-A Hasher object is returned when a torrent is created with `make` and when a torrent is hash checked with `hashCheck` or `Torrent#hashCheck`. It inherits from ReadableStream.
+A Hasher object is returned when a torrent is created with `make` and when `Torrent#hashCheck` is called. It inherits from ReadableStream.
 
 ### Hasher#pause()
 
