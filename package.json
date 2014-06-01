@@ -17,7 +17,7 @@
     "test": "vows test/*-test.js --spec"
   },
   "dependencies": {
-    "async": "~0.7.0",
+    "async": "~0.9.0",
     "bncode": "~0.5.2",
     "buffers": "~0.1.1",
     "colors": "~0.6.0-1",
@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "vows": "~0.7.0",
-    "nock": "~0.28.2"
+    "nock": "~0.32.3"
   },
   "licenses": [{
     "type": "MIT",
