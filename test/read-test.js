@@ -13,13 +13,6 @@ var remotefile3 = 'http://www.mininova.org/get/2886852';
 var file4 = path.join(__dirname, 'torrents', 'chipcheezum.torrent');
 
 
-// Mock request to remote file.
-var parsedUrl = url.parse(remotefile3);
-nock('http://' + parsedUrl.host)
-  .get(parsedUrl.pathname)
-  .replyWithFile(200, file3);
-
-
 vows.describe('Read')
   .addBatch({
     // This torrent was created with mktorrent.
@@ -91,6 +84,12 @@ vows.describe('Read')
 
     'Download a torrent and read it': {
       topic: function() {
+        // Mock request to remote file.
+        var parsedUrl = url.parse(remotefile3);
+        nock('http://' + parsedUrl.host)
+          .get(parsedUrl.pathname)
+          .replyWithFile(200, file3);
+
         nt.read(remotefile3, this.callback);
       },
 
