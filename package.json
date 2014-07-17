@@ -22,7 +22,7 @@
     "buffers": "~0.1.1",
     "colors": "~0.6.0-1",
     "memorystream": "~0.2.0",
-    "nomnom": "~1.6.1",
+    "nomnom": "~1.8.0",
     "ordered-emitter": "~0.1.0",
     "streamin": "~0.2.2",
     "streamspeed": "~0.2.0",
@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "vows": "~0.7.0",
-    "nock": "~0.34.1"
+    "nock": "~0.41.0"
   },
   "licenses": [{
     "type": "MIT",
