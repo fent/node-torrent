@@ -1,3 +1,4 @@
+/*jshint maxlen: false */
 var nt     = require('..');
 var vows   = require('vows');
 var assert = require('assert');
