@@ -20,17 +20,17 @@
     "async": "~0.9.0",
     "bncode": "~0.5.2",
     "buffers": "~0.1.1",
-    "colors": "~0.6.0-1",
+    "colors": "^1.0.3",
     "memorystream": "~0.2.0",
     "nomnom": "~1.8.0",
     "ordered-emitter": "~0.1.0",
     "streamin": "~0.2.2",
     "streamspeed": "~0.2.0",
-    "underscore": "~1.6.0"
+    "underscore": "^1.6.0"
   },
   "devDependencies": {
-    "vows": "~0.7.0",
-    "nock": "~0.41.0"
+    "vows": "*",
+    "nock": "*"
   },
   "licenses": [{
     "type": "MIT",
