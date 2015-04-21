@@ -74,12 +74,9 @@ vows.describe('Make')
 
       'then write new torrent file': {
         topic: function(torrent) {
-          var rs = torrent.createWriteStream(output2);
-          var callback = this.callback;
-
-          nt.read(rs, function(err, torrent) {
+          var ws = torrent.createWriteStream(output2);
+          ws.on('close', function(){
             fs.unlink(output2);
-            callback(err, torrent);
           });
         },
 
