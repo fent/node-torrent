@@ -119,7 +119,7 @@ Creates a ReadableStream that emits raw bencoded data for this torrent. Returns 
 
 ### Torrent#createWriteStream(filepath)
 
-Shortcut that pipes the stream from `Torrent#createReadStream()` to a writable file stream. Returns the readable stream.
+Shortcut that pipes the stream from `Torrent#createReadStream()` to a writable file stream. Returns the writable stream.
 
 ### Torrent#hashCheck(dir, [options])
 
