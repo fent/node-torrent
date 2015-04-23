@@ -74,21 +74,24 @@ vows.describe('Make')
 
       'then write new torrent file': {
         topic: function(torrent) {
-          var rs = torrent.createWriteStream(output2);
+          var ws = torrent.createWriteStream(output2);
           var callback = this.callback;
-
-          nt.read(rs, function(err, torrent) {
-            fs.unlink(output2);
-            callback(err, torrent);
+          
+          ws.on('close', function(){
+            nt.read(output2, function(err, torrent) {
+              fs.unlink(output2);
+              callback(err, torrent);
+            });
           });
         },
 
-        'Info hash matches on new file': function(torrent) {
+        'Info hash from read file matches': function(torrent) {
           assert.isObject(torrent.metadata);
           assert.equal(torrent.infoHash(),
             'a38d02c287893842a32825aa866e00828a318f07');
         }
       }
+
     }
   })
   .export(module);
