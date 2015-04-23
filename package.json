@@ -1,15 +1,21 @@
 {
   "name": "nt",
   "description": "Read, make, write, and hash check torrent files",
-  "keywords": ["torrent", "bittorremt", "file"],
-  "version": "0.4.1",
+  "keywords": [
+    "torrent",
+    "bittorremt",
+    "file"
+  ],
+  "version": "0.5.0",
   "repository": {
     "type": "git",
     "url": "git://github.com/fent/node-torrent.git"
   },
   "author": "fent (https://github.com/fent)",
   "main": "./lib/index.js",
-  "bin": { "nt": "./bin/nt.js" },
+  "bin": {
+    "nt": "./bin/nt.js"
+  },
   "directories": {
     "lib": "./lib"
   },
@@ -32,8 +38,10 @@
     "vows": "*",
     "nock": "*"
   },
-  "licenses": [{
-    "type": "MIT",
-    "url" : "http://github.com/fent/node-torrent/raw/master/LICENSE"
-  }]
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "http://github.com/fent/node-torrent/raw/master/LICENSE"
+    }
+  ]
 }
