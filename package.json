@@ -13,9 +13,6 @@
   },
   "author": "fent (https://github.com/fent)",
   "main": "./lib/index.js",
-  "bin": {
-    "nt": "./bin/nt.js"
-  },
   "directories": {
     "lib": "./lib"
   },
@@ -26,9 +23,7 @@
     "async": "~1.2.1",
     "bncode": "~0.5.2",
     "buffers": "~0.1.1",
-    "colors": "^1.0.3",
     "memorystream": "~0.3.1",
-    "nomnom": "~1.8.0",
     "ordered-emitter": "~0.1.0",
     "streamin": "~0.2.2",
     "streamspeed": "~0.2.0",
