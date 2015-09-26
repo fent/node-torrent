@@ -1,4 +1,2 @@
 node_modules
 test/result/*.torrent
-bench/*.torrent
-bench/*.mp4

@@ -181,17 +181,10 @@ Error hash checking.
 Hash checking is finished.
 
 
-# Command Line
-
-nt can be ran from the command line too! Install it with the `-g` flag with npm and use it with the command `nt`.
-
-![example img](http://i.imgur.com/y47Sc.png)
-
-
 # Install
 
 ```bash
-npm -g install nt
+npm install nt
 ```
 
 
