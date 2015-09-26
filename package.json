@@ -20,7 +20,7 @@
     "test": "vows test/*-test.js --spec"
   },
   "dependencies": {
-    "async": "~1.2.1",
+    "async": "^1.4.2",
     "bncode": "~0.5.2",
     "buffers": "~0.1.1",
     "memorystream": "~0.3.1",
