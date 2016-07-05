@@ -20,11 +20,11 @@
     "test": "vows test/*-test.js --spec"
   },
   "dependencies": {
-    "async": "^1.4.2",
+    "async": "^2.0.0-rc",
     "bncode": "~0.5.2",
     "buffers": "~0.1.1",
     "memorystream": "~0.3.1",
-    "ordered-emitter": "~0.1.0",
+    "ordered-emitter": "^1.0.0",
     "streamin": "~0.2.2",
     "streamspeed": "~0.2.0",
     "underscore": "^1.6.0"
