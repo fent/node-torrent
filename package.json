@@ -17,7 +17,7 @@
     "lib": "./lib"
   },
   "scripts": {
-    "test": "vows test/*-test.js --spec"
+    "test": "istanbul cover vows -- --spec test/*-test.js"
   },
   "dependencies": {
     "async": "^2.0.0-rc",
@@ -30,6 +30,7 @@
     "underscore": "^1.6.0"
   },
   "devDependencies": {
+    "istanbul": "*",
     "vows": "*",
     "nock": "*"
   },
