@@ -144,7 +144,7 @@ Resumes hash checking.
 
 ### Hasher#toggle()
 
-Continues hashing if paused or pauses if not
+Continues hashing if paused or pauses if not.
 
 ### Hasher#destroy()
 
