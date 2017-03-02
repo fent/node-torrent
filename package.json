@@ -26,7 +26,7 @@
     "memorystream": "~0.3.1",
     "ordered-emitter": "^1.0.0",
     "streamin": "~0.2.2",
-    "streamspeed": "~0.2.0",
+    "streamspeed": "~1.0.0",
     "underscore": "^1.6.0"
   },
   "devDependencies": {
