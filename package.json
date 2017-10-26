@@ -33,9 +33,9 @@
     "underscore": "^1.6.0"
   },
   "devDependencies": {
-    "istanbul": "*",
-    "vows": "*",
-    "nock": "*"
+    "istanbul": "^0.4.5",
+    "nock": "^9.0.25",
+    "vows": "^0.8.1"
   },
   "engines": {
     "node": ">=4"
