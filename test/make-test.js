@@ -1,17 +1,17 @@
-var nt     = require('..');
-var vows   = require('vows');
-var assert = require('assert');
-var path   = require('path');
-var fs     = require('fs');
+const nt     = require('..');
+const vows   = require('vows');
+const assert = require('assert');
+const path   = require('path');
+const fs     = require('fs');
 
 
-var file1 = path.join(__dirname, 'torrents', 'ubuntu.torrent');
-var output1 = path.join(__dirname, 'result', 'new.torrent');
-var output2 = path.join(__dirname, 'result', 'ubuntu.copy.torrent');
-var tracker = 'http://faketracker.com';
-var folder = path.join(__dirname, 'files');
-var files = ['click.jpg'];
-var options = { pieceLength: 18 /* 256 KB */, private: true };
+const file1 = path.join(__dirname, 'torrents', 'ubuntu.torrent');
+const output1 = path.join(__dirname, 'result', 'new.torrent');
+const output2 = path.join(__dirname, 'result', 'ubuntu.copy.torrent');
+const tracker = 'http://faketracker.com';
+const folder = path.join(__dirname, 'files');
+const files = ['click.jpg'];
+const options = { pieceLength: 18 /* 256 KB */, private: true };
 
 
 vows.describe('Make')
@@ -21,11 +21,10 @@ vows.describe('Make')
         nt.make(tracker, folder, files, options, this.callback);
       },
 
-      'Info hash matches torrent previously made by mktorrent':
-        function(torrent) {
-          assert.equal(torrent.infoHash(),
-              '2fff646b166f37f4fd131778123b25a01639e0b3');
-        }
+      'Info hash matches torrent previously made by mktorrent': (torrent) => {
+        assert.equal(torrent.infoHash(),
+          '2fff646b166f37f4fd131778123b25a01639e0b3');
+      }
     },
 
     'Make a torrent file with folder, files, and pipe to read': {
@@ -37,10 +36,10 @@ vows.describe('Make')
         nt.read(rs, cb);
       },
 
-      'Info hash matches': function(err, torrent) {
+      'Info hash matches': (err, torrent) => {
         if (err) throw err;
         assert.equal(torrent.infoHash(),
-                     'c4397e42eb43c9801017a709eb7bce5e3b27aaf9');
+          'c4397e42eb43c9801017a709eb7bce5e3b27aaf9');
       }
     },
 
@@ -49,15 +48,15 @@ vows.describe('Make')
         var rs = nt.makeWrite(output1, tracker, folder);
         var callback = this.callback;
 
-        nt.read(rs, function(err, torrent) {
+        nt.read(rs, (err, torrent) => {
           fs.unlink(output1);
           callback(err, torrent);
         });
       },
 
-      'Info hash matches': function(torrent) {
+      'Info hash matches': (torrent) => {
         assert.equal(torrent.infoHash(),
-                     'c4397e42eb43c9801017a709eb7bce5e3b27aaf9');
+          'c4397e42eb43c9801017a709eb7bce5e3b27aaf9');
       }
     },
 
@@ -66,7 +65,7 @@ vows.describe('Make')
         nt.read(file1, this.callback);
       },
 
-      'Info hash from read file matches': function(torrent) {
+      'Info hash from read file matches': (torrent) => {
         assert.isObject(torrent.metadata);
         assert.equal(torrent.infoHash(),
           'a38d02c287893842a32825aa866e00828a318f07');
@@ -77,15 +76,15 @@ vows.describe('Make')
           var ws = torrent.createWriteStream(output2);
           var callback = this.callback;
           
-          ws.on('close', function(){
-            nt.read(output2, function(err, torrent) {
+          ws.on('close', ()=> {
+            nt.read(output2, (err, torrent) => {
               fs.unlink(output2);
               callback(err, torrent);
             });
           });
         },
 
-        'Info hash from read file matches': function(torrent) {
+        'Info hash from read file matches': (torrent) => {
           assert.isObject(torrent.metadata);
           assert.equal(torrent.infoHash(),
             'a38d02c287893842a32825aa866e00828a318f07');

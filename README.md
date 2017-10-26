@@ -11,16 +11,16 @@ Read, make, and hash check torrents with node.js!
 ## Read a torrent
 
 ```javascript
-var nt = require('nt');
+const nt = require('nt');
 
-nt.read('path/to/file.torrent', function(err, torrent) {
+nt.read('path/to/file.torrent', (err, torrent) => {
   if (err) throw err;
   console.log('Info hash:', torrent.infoHash());
 });
 
 
 // If url is given, it will be downloaded.
-nt.read('http://torrents.me/download.php?id=2342', function(err, torrent) {
+nt.read('http://torrents.me/download.php?id=2342', (err, torrent) => {
   if (err) throw err;
   console.log(torrent.metadata);
 });
@@ -35,7 +35,7 @@ rs.pipe(fs.createWriteStream('mytorrent.torrent'));
 // callback style
 nt.makeWrite('outputfile', 'http://announce.me', __dirname + '/files',
   ['somefile.ext', 'another.one', 'inside/afolder.mkv', 'afolder'],
-  function(err, torrent) {
+  (err, torrent) => {
     if (err) throw err;
     console.log('Finished writing torrent!');
   });
@@ -47,11 +47,11 @@ nt.makeWrite('outputfile', 'http://announce.me', __dirname + '/files',
 var hasher = torrent.hashCheck(file);
 
 var p;
-hasher.on('match', function(i, hash, percent) {
+hasher.on('match', (i, hash, percent) => {
   p = percent;
 });
 
-hasher.on('end', function() {
+hasher.on('end', () => {
   console.log('Hash Check:', p + '%', 'matched');
 });
 ```
@@ -150,46 +150,62 @@ Continues hashing if paused or pauses if not.
 
 Stops hashing completely. Closes file descriptors and does not emit any more events.
 
-### Events:
-
-* 'ready' `function () { }`
+### Event: 'ready'
 
 Finished examining files to be hashed and ready to start hashing their contents.
 
-* 'data', `function (data) { }`
+### Event: 'data'
+* `Buffer` - data
 
 Emits raw bencoded torrent data only when hasher is returned from the `make` function.
 
-* 'progress' `function (percent, speed, avgSpeed) { }`
+### 'progress'
+* `Number` - percent
+* `Number` - speed
+* `Number` - avgSpeed
 
 Emits the progress calculated by amount of bytes read from files. `speed` and `avgSpeed` are in bytes.
 
-* 'hash' `function (index, hash, file, position, length) { }`
+### 'hash'
+* `Number` - index
+* `String` - hash
+* `String` - file
+* `Number` - position
+* `Number` - length
 
 Emitted when a piece is hashed along with hash position and source.
 
-* 'match' `function (index, hash, percentMatched, file, position, length) { }`
+### 'match'
+* `Number` - index
+* `String` - hash
+* `Number` - percentMatched
+* `String` - file
+* `Number` - position
+* `Number` - length
 
 Emitted when a piece matches with its `index`, the piece, and the percentage of pieces matched so far.
 
-* 'matcherror' `function (index, file, position, length) { }`
+### 'matcherror'
+* `Number` - index
+* `String` - file
+* `Number` - position
+* `Number` - length
 
 Emitted when a piece does not match.
 
-* 'error' `function (err) { }`
+### 'error'
+* `Error` - err
 
 Error hash checking.
 
-* 'end' `function () { }`
+### 'end'
 
 Hash checking is finished.
 
 
 # Install
 
-```bash
-npm install nt
-```
+    npm install nt
 
 
 # Tests
