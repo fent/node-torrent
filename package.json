@@ -28,13 +28,11 @@
     "buffers": "~0.1.1",
     "memorystream": "~0.3.1",
     "ordered-emitter": "^1.0.0",
-    "streamin": "~0.2.2",
     "streamspeed": "~1.1.0",
     "underscore": "^1.6.0"
   },
   "devDependencies": {
     "istanbul": "^0.4.5",
-    "nock": "^9.0.25",
     "vows": "^0.8.1"
   },
   "engines": {

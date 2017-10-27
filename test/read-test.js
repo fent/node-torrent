@@ -3,13 +3,9 @@ const vows   = require('vows');
 const assert = require('assert');
 const path   = require('path');
 const fs     = require('fs');
-const url    = require('url');
-const nock   = require('nock');
 
 
 const file2 = path.join(__dirname,'torrents', 'click.jpg.torrent');
-const file3 = path.join(__dirname, 'torrents', 'virtualbox.torrent');
-const remotefile3 = 'http://www.mininova.org/get/2886852';
 const file4 = path.join(__dirname, 'torrents', 'chipcheezum.torrent');
 
 
@@ -81,53 +77,5 @@ vows.describe('Read')
         }
       }
     },
-
-    'Download a torrent and read it': {
-      topic: function() {
-        // Mock request to remote file.
-        var parsedUrl = url.parse(remotefile3);
-        nock('http://' + parsedUrl.host)
-          .get(parsedUrl.pathname)
-          .replyWithFile(200, file3);
-
-        nt.read(remotefile3, this.callback);
-      },
-
-      'Info hash matches': (result) => {
-        assert.isObject(result.metadata);
-        assert.equal(result.infoHash(),
-          '6a7eb42ab3b9781eba2d9ff3545d9758f27ec239');
-      },
-      'Announce URL is correct': (result) => {
-        assert.isObject(result.metadata);
-        assert.include(result.metadata, 'announce');
-        assert.equal(result.metadata.announce, 'http://tracker.mininova.org/announce');
-      },
-      'Multi file mode': (result) => {
-        assert.isObject(result.metadata);
-        assert.include(result.metadata, 'info');
-        assert.include(result.metadata.info, 'name');
-        assert.equal(result.metadata.info.name,
-          'VirtualBox - CentOS 4.8 i386 Desktop Virtual Disk Image' +
-          ' - [VirtualBoxImages.com]');
-        assert.include(result.metadata.info, 'files');
-        assert.deepEqual(result.metadata.info.files, [
-          {
-            length: 291,
-            path: [ 'Distributed by Mininova.txt' ]
-          },
-          {
-            length: 917356457,
-            path: [ 'VirtualBox_-_CentOS-4.8-Desktop-i386_VDI-[VirtualBoxImages.com].rar' ]
-          }
-        ]);
-      },
-      '1 MB piece length': (result) => {
-        assert.isObject(result.metadata);
-        assert.include(result.metadata, 'info');
-        assert.include(result.metadata.info, 'piece length');
-        assert.equal(result.metadata.info['piece length'], 1048576);
-      }
-    }
   })
   .export(module);
