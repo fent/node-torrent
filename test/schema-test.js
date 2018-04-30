@@ -7,11 +7,11 @@ const assert = require('assert');
 
 function torrent() {
   return {
-    announce: new Buffer('http://tracker.com/1234'),
+    announce: Buffer.from('http://tracker.com/1234'),
     info: {
-      name: new Buffer('magic'),
+      name: Buffer.from('magic'),
       'piece length': 262144,
-      pieces: new Buffer(20),
+      pieces: Buffer.alloc(20),
       length: 20
 
     }
@@ -26,7 +26,7 @@ var tests = {
     t.announce = 43;
   },
   '`announce` is not a URL': (t) => {
-    t.announce = new Buffer('LOL');
+    t.announce = Buffer.from('LOL');
   },
   '`creation date` is not an integer': (t) => {
     t['creation date'] = 'hello';
@@ -56,7 +56,7 @@ var tests = {
     t.info = { files: [{ length: 1, md5sum: 'no' }] };
   },
   '`md5sum` is not a 32 length hex in file': (t) => {
-    t.info = { files: [{ length: 1, md5sum: new Buffer('ohoh') }] };
+    t.info = { files: [{ length: 1, md5sum: Buffer.from('ohoh') }] };
   },
   '`path` field not found in file': (t) => {
     t.info = { files: [{ length: 1 }] };
@@ -69,13 +69,13 @@ var tests = {
   },
   'Cannot have `info.length` in multi file mode': (t) => {
     t.info = {
-      files: [{ length: 1, path: [new Buffer('k')] }],
+      files: [{ length: 1, path: [Buffer.from('k')] }],
       length: 1,
     };
   },
   'Cannot have `info.md5sum` in multi file mode': (t) => {
     t.info = {
-      files: [{ length: 1, path: [new Buffer('k')] }],
+      files: [{ length: 1, path: [Buffer.from('k')] }],
       md5sum: 1,
     };
   },
@@ -101,7 +101,7 @@ var tests = {
     t.info.pieces = 'n';
   },
   '`info.pieces` length is not divisible by 20': (t) => {
-    t.info.pieces = new Buffer(19);
+    t.info.pieces = Buffer.alloc(19);
   },
   '`info.private` can only be 0 or 1': (t) => {
     t.info.private = 3;

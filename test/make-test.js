@@ -49,8 +49,9 @@ vows.describe('Make')
         var callback = this.callback;
 
         nt.read(rs, (err, torrent) => {
-          fs.unlink(output1);
-          callback(err, torrent);
+          fs.unlink(output1, () => {
+            callback(err, torrent);
+          });
         });
       },
 
@@ -78,8 +79,9 @@ vows.describe('Make')
           
           ws.on('close', ()=> {
             nt.read(output2, (err, torrent) => {
-              fs.unlink(output2);
-              callback(err, torrent);
+              fs.unlink(output2, () => {
+                callback(err, torrent);
+              });
             });
           });
         },
