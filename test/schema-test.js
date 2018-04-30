@@ -1,5 +1,3 @@
-'use strict';
-
 const schema = require('../lib/schema');
 const vows   = require('vows');
 const assert = require('assert');
