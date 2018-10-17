@@ -33,7 +33,7 @@
   },
   "devDependencies": {
     "istanbul": "^0.4.5",
-    "vows": "^0.8.1"
+    "vows": "^0.8.2"
   },
   "engines": {
     "node": ">=4"
