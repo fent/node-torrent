@@ -3,7 +3,7 @@ const vows   = require('vows');
 const assert = require('assert');
 
 
-function torrent() {
+const torrent = () => {
   return {
     announce: Buffer.from('http://tracker.com/1234'),
     info: {
@@ -11,12 +11,11 @@ function torrent() {
       'piece length': 262144,
       pieces: Buffer.alloc(20),
       length: 20
-
     }
   };
-}
+};
 
-var tests = {
+const tests = {
   '`announce` and `announce-list` fields not found': (t) => {
     delete t.announce;
   },
@@ -109,10 +108,10 @@ var tests = {
   },
 };
 
-var batch = {};
+const batch = {};
 for (let test in tests) {
   batch[test] = () => {
-    var t = torrent();
+    const t = torrent();
     tests[test](t);
     assert.equal(schema.checkTorrent(t), test);
   };

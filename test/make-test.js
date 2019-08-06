@@ -29,9 +29,8 @@ vows.describe('Make')
 
     'Make a torrent file with folder, files, and pipe to read': {
       topic: function() {
-        var rs = nt.make(tracker, folder, ['.']);
-
-        var cb = this.callback;
+        let rs = nt.make(tracker, folder, ['.']);
+        let cb = this.callback;
         rs.on('error', cb);
         nt.read(rs, cb);
       },
@@ -45,8 +44,8 @@ vows.describe('Make')
 
     'Make and write a torrent file with just the folder': {
       topic: function() {
-        var rs = nt.makeWrite(output1, tracker, folder);
-        var callback = this.callback;
+        let rs = nt.makeWrite(output1, tracker, folder);
+        let callback = this.callback;
 
         nt.read(rs, (err, torrent) => {
           fs.unlink(output1, () => {
@@ -74,8 +73,8 @@ vows.describe('Make')
 
       'then write new torrent file': {
         topic: function(torrent) {
-          var ws = torrent.createWriteStream(output2);
-          var callback = this.callback;
+          let ws = torrent.createWriteStream(output2);
+          let callback = this.callback;
           
           ws.on('close', ()=> {
             nt.read(output2, (err, torrent) => {

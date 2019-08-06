@@ -39,7 +39,7 @@
     "vows": "^0.8.2"
   },
   "engines": {
-    "node": ">=4"
+    "node": ">=6"
   },
   "license": "MIT",
   "snyk": true

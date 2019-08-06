@@ -22,7 +22,7 @@ nt.read('path/to/file.torrent', (err, torrent) => {
 ## Make a torrent
 
 ```javascript
-var rs = nt.make('http://myannounce.net/url', __dirname + '/files');
+let rs = nt.make('http://myannounce.net/url', __dirname + '/files');
 rs.pipe(fs.createWriteStream('mytorrent.torrent'));
 
 // callback style
@@ -37,9 +37,9 @@ nt.makeWrite('outputfile', 'http://announce.me', __dirname + '/files',
 ## Hash check a torrent
 
 ```js
-var hasher = torrent.hashCheck(file);
+let hasher = torrent.hashCheck(file);
 
-var p;
+let p;
 hasher.on('match', (i, hash, percent) => {
   p = percent;
 });
@@ -153,36 +153,36 @@ Finished examining files to be hashed and ready to start hashing their contents.
 Emits raw bencoded torrent data only when hasher is returned from the `make` function.
 
 ### 'progress'
-* `Number` - percent
-* `Number` - speed
-* `Number` - avgSpeed
+* `number` - percent
+* `number` - speed
+* `number` - avgSpeed
 
 Emits the progress calculated by amount of bytes read from files. `speed` and `avgSpeed` are in bytes.
 
 ### 'hash'
-* `Number` - index
-* `String` - hash
-* `String` - file
-* `Number` - position
-* `Number` - length
+* `number` - index
+* `string` - hash
+* `string` - file
+* `number` - position
+* `number` - length
 
 Emitted when a piece is hashed along with hash position and source.
 
 ### 'match'
-* `Number` - index
-* `String` - hash
-* `Number` - percentMatched
-* `String` - file
-* `Number` - position
-* `Number` - length
+* `number` - index
+* `string` - hash
+* `number` - percentMatched
+* `string` - file
+* `number` - position
+* `number` - length
 
 Emitted when a piece matches with its `index`, the piece, and the percentage of pieces matched so far.
 
 ### 'matcherror'
-* `Number` - index
-* `String` - file
-* `Number` - position
-* `Number` - length
+* `number` - index
+* `string` - file
+* `number` - position
+* `number` - length
 
 Emitted when a piece does not match.
 

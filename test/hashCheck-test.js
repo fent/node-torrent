@@ -12,17 +12,17 @@ vows.describe('Hash Check')
   .addBatch({
     'Read a torrent and hash check it': {
       topic: function() {
-        var cb = this.callback;
+        let cb = this.callback;
 
         nt.read(file, (err, torrent) => {
           if (err) throw err;
-          var hasher = torrent.hashCheck(folder);
+          let hasher = torrent.hashCheck(folder);
 
           hasher.on('matcherror', (i, file) => {
-            throw new Error('Could not match file ' + file);
+            throw Error('Could not match file ' + file);
           });
 
-          var percent;
+          let percent;
           hasher.on('match', (index, hash, percentMatched) => {
             percent = percentMatched;
           });
