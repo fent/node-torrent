@@ -30,7 +30,7 @@
     "buffers": "~0.1.1",
     "memorystream": "~0.3.1",
     "ordered-emitter": "^1.0.0",
-    "snyk": "^1.217.3",
+    "snyk": "^1.232.0",
     "streamspeed": "~1.1.0",
     "underscore": "^1.6.0"
   },
