@@ -20,9 +20,7 @@
     "lib": "./lib"
   },
   "scripts": {
-    "test": "istanbul cover vows -- --spec test/*-test.js",
-    "snyk-protect": "snyk protect",
-    "prepare": "npm run snyk-protect"
+    "test": "istanbul cover vows -- --spec test/*-test.js"
   },
   "dependencies": {
     "async": "^3.1.0",
@@ -30,7 +28,6 @@
     "buffers": "~0.1.1",
     "memorystream": "~0.3.1",
     "ordered-emitter": "^1.0.0",
-    "snyk": "^1.217.3",
     "streamspeed": "~1.1.0",
     "underscore": "^1.6.0"
   },
