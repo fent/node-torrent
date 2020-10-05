@@ -52,7 +52,15 @@ declare module 'node-torrent' {
      * }
      * ```
      */
-    metadata: object;
+    metadata: {
+      announce: string;
+      'announce-list'?: string[][]
+      'creation-date'?: string;
+      comment?: string;
+      'created-by'?: string;
+      encoding?: string;
+      info: MultiFileInfo | SingleFileInfo;
+    };
 
     /**
      * Get a torrent's info hash.
@@ -92,6 +100,27 @@ declare module 'node-torrent' {
         maxFiles: number;
       }>
     ): Hasher;
+  }
+
+  type MetadataInfo = {
+    name?: string;
+    'piece-length': number;
+    pieces: string;
+    private?: 0 | 1;
+    source?: string;
+  }
+
+  type SingleFileInfo = MetadataInfo & {
+    length: number;
+    md5sum?: string;
+  }
+
+  type MultiFileInfo = MetadataInfo & {
+    files: {
+      length: number;
+      path: string;
+      md5sum?: string;
+    }[];
   }
 
   type MakeOptions = {
@@ -136,7 +165,7 @@ declare module 'node-torrent' {
      * Does not check if the dictonaries are listed alphabetically.
      * Refer to the [BitTorrent Specification](https://wiki.theory.org/BitTorrentSpecification) for more info on torrent metainfo.
      *
-     * @param file Where the torrent resides, can be local file, remote, or a readable stream.
+     * @param file Where the torrent resides, can be local file, or a readable stream.
      * @param validate Validate or not schema.
      * @param callback Called with a possible `Error`, and a `Torrent` object when hashing is finished.
      */
