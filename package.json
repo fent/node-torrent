@@ -24,7 +24,7 @@
     "test": "istanbul cover vows -- --spec test/*-test.js"
   },
   "dependencies": {
-    "async": "^3.2.0",
+    "async": "^3.2.3",
     "bncode": "~0.5.2",
     "buffers": "~0.1.1",
     "memorystream": "~0.3.1",
