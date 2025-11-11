@@ -1,3 +1,5 @@
 node_modules
 test/result/*.torrent
 coverage
+CLAUDE.md
+.claude/
