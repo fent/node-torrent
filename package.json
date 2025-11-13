@@ -21,7 +21,7 @@
     "lib": "./lib"
   },
   "scripts": {
-    "test": "nyc mocha mocha-tests/**/*.js"
+    "test": "nyc mocha test/**/*.js"
   },
   "dependencies": {
     "async": "^3.2.0",

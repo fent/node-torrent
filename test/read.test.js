@@ -3,8 +3,8 @@ const { expect } = require('chai');
 const path = require('path');
 const fs = require('fs');
 
-const file2 = path.join(__dirname, '..', 'test', 'torrents', 'click.jpg.torrent');
-const file4 = path.join(__dirname, '..', 'test', 'torrents', 'chipcheezum.torrent');
+const file2 = path.join(__dirname, 'torrents', 'click.jpg.torrent');
+const file4 = path.join(__dirname, 'torrents', 'chipcheezum.torrent');
 
 describe('Read', function() {
   // This torrent was created with mktorrent.

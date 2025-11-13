@@ -3,11 +3,11 @@ const { expect } = require('chai');
 const path = require('path');
 const fs = require('fs');
 
-const file1 = path.join(__dirname, '..', 'test', 'torrents', 'ubuntu.torrent');
-const output1 = path.join(__dirname, '..', 'test', 'result', 'new.torrent');
-const output2 = path.join(__dirname, '..', 'test', 'result', 'ubuntu.copy.torrent');
+const file1 = path.join(__dirname, 'torrents', 'ubuntu.torrent');
+const output1 = path.join(__dirname, 'result', 'new.torrent');
+const output2 = path.join(__dirname, 'result', 'ubuntu.copy.torrent');
 const tracker = 'http://faketracker.com';
-const folder = path.join(__dirname, '..', 'test', 'files');
+const folder = path.join(__dirname, 'files');
 const files = ['click.jpg'];
 const options = { pieceLength: 18 /* 256 KB */, private: true };
 

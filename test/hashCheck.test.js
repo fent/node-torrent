@@ -2,8 +2,8 @@ const nt = require('..');
 const { expect } = require('chai');
 const path = require('path');
 
-const file = path.join(__dirname, '..', 'test', 'torrents', 'files.torrent');
-const folder = path.join(__dirname, '..', 'test', 'files');
+const file = path.join(__dirname, 'torrents', 'files.torrent');
+const folder = path.join(__dirname, 'files');
 
 describe('Hash Check', function() {
   describe('Read a torrent and hash check it', function() {
