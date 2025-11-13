@@ -202,7 +202,7 @@ Hash checking is finished.
 
 
 # Tests
-Tests are written with [vows](http://vowsjs.org/)
+Tests are written with [mocha](https://mochajs.org/) and [chai](https://www.chaijs.com/)
 
 ```bash
 npm test
