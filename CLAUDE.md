@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Run tests with coverage
 npm test
 
-# Tests are located in test/ directory with pattern *.test.js
+# Tests are located in test/ directory with pattern *-test.js
 # Uses mocha/chai (BDD framework) with nyc for coverage
 ```
 
@@ -53,7 +53,7 @@ The library is organized in the `lib/` directory with modular components:
 
 - **Framework**: mocha/chai (modern BDD framework)
 - **Coverage**: nyc with codecov integration
-- **Test Files**: Located in `test/` directory following `*.test.js` pattern
+- **Test Files**: Located in `test/` directory following `*-test.js` pattern
 - **Test Data**: Sample torrents and test files in `test/torrents/`, `test/files/`, and `test/result/`
 
 ## Dependencies
