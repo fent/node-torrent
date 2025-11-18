@@ -36,3 +36,4 @@ describe('Hash Check', function() {
     });
   });
 });
+
