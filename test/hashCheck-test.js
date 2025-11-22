@@ -1,41 +1,39 @@
-const nt     = require('..');
-const vows   = require('vows');
-const assert = require('assert');
-const path   = require('path');
-
+const nt = require('..');
+const { expect } = require('chai');
+const path = require('path');
 
 const file = path.join(__dirname, 'torrents', 'files.torrent');
 const folder = path.join(__dirname, 'files');
 
+describe('Hash Check', function() {
+  describe('Read a torrent and hash check it', function() {
+    let percent;
 
-vows.describe('Hash Check')
-  .addBatch({
-    'Read a torrent and hash check it': {
-      topic: function() {
-        let cb = this.callback;
+    before(function(done) {
+      nt.read(file, (err, torrent) => {
+        if (err) return done(err);
 
-        nt.read(file, (err, torrent) => {
-          if (err) throw err;
-          let hasher = torrent.hashCheck(folder);
+        let hasher = torrent.hashCheck(folder);
 
-          hasher.on('matcherror', (i, file) => {
-            throw Error('Could not match file ' + file);
-          });
-
-          let percent;
-          hasher.on('match', (index, hash, percentMatched) => {
-            percent = percentMatched;
-          });
-
-          hasher.on('end', () => {
-            cb(null, percent);
-          });
+        hasher.on('matcherror', (i, file) => {
+          done(new Error('Could not match file ' + file));
         });
-      },
 
-      '100% match': (percent) => {
-        assert.equal(percent, 100);
-      }
-    }
-  })
-  .export(module);
+        hasher.on('match', (index, hash, percentMatched) => {
+          percent = percentMatched;
+        });
+
+        hasher.on('end', () => {
+          done();
+        });
+
+        hasher.on('error', done);
+      });
+    });
+
+    it('100% match', function() {
+      expect(percent).to.equal(100);
+    });
+  });
+});
+
