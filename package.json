@@ -29,8 +29,7 @@
     "buffers": "~0.1.1",
     "memorystream": "~0.3.1",
     "ordered-emitter": "^1.0.0",
-    "streamspeed": "~2.0.0",
-    "underscore": "^1.10.2"
+    "streamspeed": "~2.0.0"
   },
   "devDependencies": {
     "chai": "6.2.1",
