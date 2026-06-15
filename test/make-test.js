@@ -25,6 +25,20 @@ describe('Make', function() {
 
     it('Info hash matches torrent previously made by mktorrent', function() {
       expect(torrent.infoHash()).to.equal('2fff646b166f37f4fd131778123b25a01639e0b3');
+      /*Torrent {
+        metadata: {
+          announce: 'http://faketracker.com',
+          'created by': 'nt 0.7.1',
+          'creation date': 1781518092,
+          info: {
+            length: 87582,
+            name: 'click.jpg',
+            'piece length': 262144,
+            pieces: <Buffer 23 16 e5 0e 24 8d 8e a5 df 98 80 49 d6 e1 43 0a 59 05 bc 89>,
+            private: 1
+          }
+        }
+      }*/
     });
   });
 
