@@ -2,8 +2,8 @@
 
 Read, make, and hash check torrents with node.js!
 
-[![Build Status](https://secure.travis-ci.org/fent/node-torrent.svg)](http://travis-ci.org/fent/node-torrent)
-![Depfu](https://img.shields.io/depfu/fent/node-torrent)
+[![npm](https://img.shields.io/npm/v/nt)](https://www.npmjs.com/package/nt)
+[![Node.js CI](https://github.com/fent/node-torrent/actions/workflows/nodejs.yml/badge.svg)](https://github.com/fent/node-torrent/actions/workflows/nodejs.yml)
 [![codecov](https://codecov.io/gh/fent/node-torrent/branch/master/graph/badge.svg)](https://codecov.io/gh/fent/node-torrent)
 
 # Usage
