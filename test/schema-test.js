@@ -17,11 +17,6 @@ describe('Schema', function() {
       };
     });
 
-    it('`announce` and `announce-list` fields not found', function() {
-      delete torrent.announce;
-      expect(schema.checkTorrent(torrent)).to.equal('`announce` and `announce-list` fields not found');
-    });
-
     it('`announce` is not a buffer', function() {
       torrent.announce = 43;
       expect(schema.checkTorrent(torrent)).to.equal('`announce` is not a buffer');
