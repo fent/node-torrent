@@ -1,4 +1,5 @@
 const nt = require('..');
+const Torrent = require('../lib/torrent');
 const { expect } = require('chai');
 const path = require('path');
 
@@ -66,6 +67,25 @@ describe('Hash Check', function() {
 
     it('100% match', function() {
       expect(percent).to.equal(100);
+    });
+  });
+
+  describe('Path traversal attempt in hashCheck', function() {
+    it('Emits error when task attempts to read outside base directory', function(done) {
+      const folder = path.join(__dirname, 'files');
+      const maliciousTorrent = new Torrent({
+        info: {
+          name: 'safe_name',
+          'piece length': 262144,
+          pieces: Buffer.alloc(20),
+          files: [{ length: 10, path: ['..', 'secret.txt'] }]
+        }
+      });
+      const hasher = maliciousTorrent.hashCheck(folder);
+      hasher.on('error', (err) => {
+        expect(err.message).to.contain('Path traversal detected');
+        done();
+      });
     });
   });
 });

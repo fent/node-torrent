@@ -90,6 +90,20 @@ describe('Schema', function() {
     it('`path` is not a list of buffers in file', function() {
       torrent.info = { files: [{ length: 1, path: [1] }] };
       expect(schema.checkTorrent(torrent)).to.equal('`path` is not a list of buffers in file');
+      torrent.info = { files: [{ length: 1, path: [Buffer.from('dir'), 1] }] };
+      expect(schema.checkTorrent(torrent)).to.equal('`path` is not a list of buffers in file');
+    });
+
+    it('`path` is empty in file', function() {
+      torrent.info = { files: [{ length: 1, path: [] }] };
+      expect(schema.checkTorrent(torrent)).to.equal('`path` is empty in file');
+    });
+
+    it('`path` contains invalid path segments in file', function() {
+      torrent.info = { files: [{ length: 1, path: [Buffer.from('..'), Buffer.from('file')] }] };
+      expect(schema.checkTorrent(torrent)).to.equal('`path` contains invalid path segments in file');
+      torrent.info = { files: [{ length: 1, path: [Buffer.from('dir/sub')] }] };
+      expect(schema.checkTorrent(torrent)).to.equal('`path` contains invalid path segments in file');
     });
 
     it('Cannot have `info.length` in multi file mode', function() {
@@ -118,9 +132,19 @@ describe('Schema', function() {
       expect(schema.checkTorrent(torrent)).to.equal('`info.length` is not a positive integer in file');
     });
 
+    it('`info.name` not found', function() {
+      delete torrent.info.name;
+      expect(schema.checkTorrent(torrent)).to.equal('`info.name` not found');
+    });
+
     it('`name` is not a buffer', function() {
       torrent.info.name = 1;
       expect(schema.checkTorrent(torrent)).to.equal('`name` is not a buffer');
+    });
+
+    it('`name` contains invalid characters', function() {
+      torrent.info.name = Buffer.from('../secret');
+      expect(schema.checkTorrent(torrent)).to.equal('`name` contains invalid characters');
     });
 
     it('`info.piece length` not found', function() {
@@ -131,6 +155,19 @@ describe('Schema', function() {
     it('`info.piece length` is not a positive integer', function() {
       torrent.info['piece length'] = 'n';
       expect(schema.checkTorrent(torrent)).to.equal('`info.piece length` is not a positive integer');
+      torrent.info['piece length'] = 0;
+      expect(schema.checkTorrent(torrent)).to.equal('`info.piece length` is not a positive integer');
+      torrent.info['piece length'] = -10;
+      expect(schema.checkTorrent(torrent)).to.equal('`info.piece length` is not a positive integer');
+    });
+
+    it('`info.piece length` must be a power of 2 and at least 16384', function() {
+      torrent.info['piece length'] = 1;
+      expect(schema.checkTorrent(torrent)).to.equal('`info.piece length` must be a power of 2 and at least 16384');
+      torrent.info['piece length'] = 8192;
+      expect(schema.checkTorrent(torrent)).to.equal('`info.piece length` must be a power of 2 and at least 16384');
+      torrent.info['piece length'] = 20000;
+      expect(schema.checkTorrent(torrent)).to.equal('`info.piece length` must be a power of 2 and at least 16384');
     });
 
     it('`info.pieces` not found', function() {
@@ -158,6 +195,60 @@ describe('Schema', function() {
       expect(schema.checkTorrent(torrent)).to.equal('`source` is not a buffer');
     });
 
+    it('`md5sum` with extra characters around a valid hash is invalid', function() {
+      torrent.info.md5sum = Buffer.from('xx d41d8cd98f00b204e9800998ecf8427e yy');
+      expect(schema.checkTorrent(torrent)).to.equal('`md5sum` is not a 32 length hex in file');
+    });
+
+    it('Torrent is not a hash', function() {
+      expect(schema.checkTorrent(null)).to.equal('Torrent is not a hash');
+      expect(schema.checkTorrent('not an object')).to.equal('Torrent is not a hash');
+    });
+
+    it('Blocks Artur Chlebicki PoC (GHSA-79x6-c2xh-3cq3)', function() {
+      torrent.info = {
+        name: Buffer.from('malicious'),
+        'piece length': 1,
+        pieces: Buffer.alloc(20),
+        files: [{
+          length: 1000000,
+          path: [Buffer.from('..'), Buffer.from('..'), Buffer.from('..'), Buffer.from('etc'), Buffer.from('shadow')]
+        }]
+      };
+      expect(schema.checkTorrent(torrent)).to.equal('`path` contains invalid path segments in file');
+      torrent.info.files[0].path = [Buffer.from('valid.txt')];
+      expect(schema.checkTorrent(torrent)).to.equal('`info.piece length` must be a power of 2 and at least 16384');
+    });
+
+  });
+
+  describe('isValidPathSegment', function() {
+    it('Rejects non-buffer and empty buffer', function() {
+      expect(schema.isValidPathSegment('not a buffer')).to.be.false;
+      expect(schema.isValidPathSegment(null)).to.be.false;
+      expect(schema.isValidPathSegment(Buffer.alloc(0))).to.be.false;
+    });
+
+    it('Rejects dot and dot-dot segments', function() {
+      expect(schema.isValidPathSegment(Buffer.from('.'))).to.be.false;
+      expect(schema.isValidPathSegment(Buffer.from('..'))).to.be.false;
+    });
+
+    it('Rejects separators and null characters', function() {
+      expect(schema.isValidPathSegment(Buffer.from('a/b'))).to.be.false;
+      expect(schema.isValidPathSegment(Buffer.from('a\\b'))).to.be.false;
+      expect(schema.isValidPathSegment(Buffer.from('a\0b'))).to.be.false;
+    });
+
+    it('Rejects Windows drive letters', function() {
+      expect(schema.isValidPathSegment(Buffer.from('C:file'))).to.be.false;
+      expect(schema.isValidPathSegment(Buffer.from('D:'))).to.be.false;
+    });
+
+    it('Accepts valid path segments', function() {
+      expect(schema.isValidPathSegment(Buffer.from('normal-file.txt'))).to.be.true;
+      expect(schema.isValidPathSegment(Buffer.from('folder_123'))).to.be.true;
+    });
   });
 });
 
