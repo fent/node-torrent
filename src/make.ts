@@ -173,7 +173,7 @@ export const make = (
     const strData = data.toString();
     const dict = `6:pieces${piecesLength}:`;
     piecesPosition = strData.indexOf(dict) + dict.length;
-    piecesPosition = Buffer.byteLength(strData.substr(0, piecesPosition));
+    piecesPosition = Buffer.byteLength(strData.slice(0, piecesPosition));
 
     // Write first part of torrent to stream.
     process.nextTick(() => {
