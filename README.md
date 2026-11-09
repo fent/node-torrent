@@ -22,8 +22,15 @@ nt.read('path/to/file.torrent', (err, torrent) => {
 ## Make a torrent
 
 ```javascript
+const fs = require('node:fs');
+const nt = require('nt');
+
 let rs = nt.make('http://myannounce.net/url', __dirname + '/files');
 rs.pipe(fs.createWriteStream('mytorrent.torrent'));
+
+// from a stream, without a directory
+nt.make('http://myannounce.net/url', fs.createReadStream('video.mp4'))
+  .pipe(fs.createWriteStream('video.torrent'));
 
 // callback style
 nt.makeWrite('outputfile', 'http://announce.me', __dirname + '/files',
@@ -60,11 +67,13 @@ An error can be returned if the torrent is formatted incorrectly. Does not check
 
 ### make(announceURL, dir, [files], [options], [callback(Error, Torrent)])
 
-Makes a new torrent. `dir` is root directory of the torrent. The `files` argument can be a file path, an array of file paths, a `Readable` stream, a `{ stream, path, length? }` object, or an array of streams/stream entry objects. If `files` is omitted, it implicitly adds all of the files in `dir` to the torrent, including those in subdirectories. `options` can have the following:
+### make(announceURL, streamOrEntries, [options], [callback(Error, Torrent)])
+
+Makes a new torrent. `dir` is the root directory of the torrent, and can be omitted when the input consists only of streams. The `files` argument can be a file path, an array of file paths, a `Readable` stream, a `{ stream, path?, length? }` object, or an array of streams/stream entry objects. If `files` is omitted, all files in `dir`, including those in subdirectories, are added. `options` can have the following:
 
 * `announceList` - An array of arrays of additional announce URLs.
 * `comment`
-* `name` - Can be used only in multi file mode. If not given, defaults to name of directory.
+* `name` - Used in multi file mode, and to name unnamed streams. Defaults to the directory name, or `stream`, with unique suffixes when there are several unnamed streams.
 * `pieceLength` - How to break up the pieces. Must be an integer `n` that says piece length will be `2^n`. Default is 256KB, or 2^18.
 * `private` - Set true if this is a private torrent.
 * `moreInfo` - These go into the `info` dictionary of the torrent. Useful if you want to make a torrent have a unique info hash from a certain tracker.
@@ -74,9 +83,9 @@ Makes a new torrent. `dir` is root directory of the torrent. The `files` argumen
 
 `make` returns a Hasher object that emits raw bencoded `data` events.
 
-When only streams are given, `dir` can be omitted: `make(announceURL, streamOrEntries, [options], [callback(Error, Torrent)])`. Streams without a path are named after `options.name`, or `stream` by default.
+`fs.ReadStream` inputs supply their path and length automatically, including ranged streams; HTTP responses with a `Content-Length` header supply their length automatically. Provide `path` and `length` for other streams when known. Explicit `length` values must be non-negative integers matching the bytes produced. Streams and file paths cannot be mixed in the same file list.
 
-### makeWrite(output, annlounce, dir, [files], [options], [callback(Error, Torrent)])
+### makeWrite(output, announce, dir, [files], [options], [callback(Error, Torrent)])
 
 A shortcut that pumps the returned readable stream from `make` into a writable stream that points to the file `output`. Returns a Hasher object.
 

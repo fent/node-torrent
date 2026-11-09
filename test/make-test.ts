@@ -206,6 +206,40 @@ describe('Make', () => {
       );
     });
 
+    it('Errors when pieceLength is less than 14', (done) => {
+      nt.make(tracker, folder, files, { pieceLength: 10 }, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.equal(
+          '`opts.pieceLength` must be an integer of at least 14',
+        );
+        done();
+      });
+    });
+
+    it('Errors when pieceLength is not an integer', (done) => {
+      nt.make(
+        tracker,
+        folder,
+        files,
+        { pieceLength: 'bad' as unknown as number },
+        (err) => {
+          expect(err).to.be.an('error');
+          expect(err?.message).to.equal(
+            '`opts.pieceLength` must be an integer of at least 14',
+          );
+          done();
+        },
+      );
+    });
+
+    it('Errors when custom name contains invalid characters', (done) => {
+      nt.make(tracker, folder, files, { name: '../invalid' }, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.equal('`name` contains invalid characters');
+        done();
+      });
+    });
+
     it('Supports valid announceList', (done) => {
       const list = [[Buffer.from('http://tracker1.com')]];
       nt.make(
@@ -302,13 +336,61 @@ describe('Make', () => {
       );
     });
 
-    it('Supports a single ReadStream (unknown length)', (done) => {
+    it('Supports a single ReadStream and infers its length and path', (done) => {
       const rs = fs.createReadStream(path.join(folder, 'click.jpg'));
-      nt.make(tracker, folder, rs, options, (err, torrent) => {
+      const makeStream = nt.make(
+        tracker,
+        folder,
+        rs,
+        options,
+        (err, torrent) => {
+          expect(err).to.be.null;
+          expect(torrent?.infoHash()).to.equal(
+            '2fff646b166f37f4fd131778123b25a01639e0b3',
+          );
+          done();
+        },
+      );
+      makeStream.on('ready', () => {
+        expect(makeStream.unknownLengths).to.be.false;
+        expect(makeStream.files).to.deep.equal([
+          { length: 87582, path: ['click.jpg'] },
+        ]);
+      });
+    });
+
+    it('Infers a missing StreamEntry path from its ReadStream', (done) => {
+      const entry = {
+        stream: fs.createReadStream(path.join(folder, 'click.jpg')),
+      } as unknown as nt.StreamEntry;
+      nt.make(tracker, folder, entry, (err, torrent) => {
         expect(err).to.be.null;
-        expect(torrent?.infoHash()).to.equal(
-          '2fff646b166f37f4fd131778123b25a01639e0b3',
-        );
+        expect(torrent?.metadata.info.name).to.equal('click.jpg');
+        expect(torrent?.metadata.info.length).to.equal(87582);
+        done();
+      });
+    });
+
+    it('Falls back to the directory name for a path-less StreamEntry', (done) => {
+      const pt = new PassThrough();
+      const entry = { stream: pt } as unknown as nt.StreamEntry;
+      nt.make(tracker, folder, entry, (err, torrent) => {
+        expect(err).to.be.null;
+        expect(torrent?.metadata.info.name).to.equal('files');
+        done();
+      });
+      pt.end(Buffer.alloc(10));
+    });
+
+    it('Infers the length of a ranged ReadStream', (done) => {
+      const rs = fs.createReadStream(path.join(folder, 'click.jpg'), {
+        start: 10,
+        end: 19,
+      });
+      nt.make(tracker, rs, (err, torrent) => {
+        expect(err).to.be.null;
+        expect(torrent?.metadata.info.name).to.equal('click.jpg');
+        expect(torrent?.metadata.info.length).to.equal(10);
         done();
       });
     });
@@ -385,6 +467,116 @@ describe('Make', () => {
       });
       setImmediate(() => {
         pt.emit('error', new Error('stream boom'));
+      });
+    });
+
+    it('Errors when StreamEntry attempts path traversal with unknown length', (done) => {
+      const entry = {
+        stream: new PassThrough(),
+        path: ['..', 'secret.txt'],
+      };
+      nt.make(tracker, folder, entry, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.contain('Path traversal detected');
+        done();
+      });
+    });
+
+    it('Errors when StreamEntry attempts path traversal with known length', (done) => {
+      const entry = {
+        stream: new PassThrough(),
+        path: ['..', 'secret.txt'],
+        length: 10,
+      };
+      nt.make(tracker, folder, entry, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.contain('Path traversal detected');
+        done();
+      });
+    });
+
+    it('Errors when streams and file paths are mixed', (done) => {
+      const mixed = [new PassThrough(), 'click.jpg'] as unknown as nt.MakeFiles;
+      nt.make(tracker, folder, mixed, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.equal(
+          'Cannot mix streams with file paths in the same list',
+        );
+        done();
+      });
+    });
+
+    it('Errors when a stream length is negative', (done) => {
+      const entry = {
+        stream: new PassThrough(),
+        path: 'invalid.txt',
+        length: -1,
+      };
+      nt.make(tracker, folder, entry, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.contain('Invalid stream length');
+        done();
+      });
+    });
+
+    it('Errors when a stream length is not an integer', (done) => {
+      const entry = {
+        stream: new PassThrough(),
+        path: 'invalid.txt',
+        length: 1.5,
+      };
+      nt.make(tracker, folder, entry, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.contain('Invalid stream length');
+        done();
+      });
+    });
+
+    it('Errors when a known-length stream is shorter than declared', (done) => {
+      const pt = new PassThrough();
+      const entry = { stream: pt, path: 'short.txt', length: 100 };
+      nt.make(tracker, folder, entry, {}, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.contain('Stream length mismatch');
+        done();
+      });
+      pt.end(Buffer.alloc(10));
+    });
+
+    it('Errors when a known-length stream is longer than declared', (done) => {
+      const pt = new PassThrough();
+      const entry = { stream: pt, path: 'long.txt', length: 10 };
+      nt.make(tracker, folder, entry, {}, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.contain('Stream length mismatch');
+        done();
+      });
+      pt.end(Buffer.alloc(20));
+    });
+
+    it('Gives multiple unnamed streams unique paths', (done) => {
+      const first = new PassThrough();
+      const second = new PassThrough();
+      nt.make(tracker, folder, [first, second], {}, (err, torrent) => {
+        expect(err).to.be.null;
+        expect(
+          torrent?.metadata.info.files?.map((file) => file.path),
+        ).to.deep.equal([['files'], ['files-1']]);
+        done();
+      });
+      first.end(Buffer.alloc(10));
+      second.end(Buffer.alloc(10));
+    });
+
+    it('Errors when stream paths are duplicated', (done) => {
+      const entries: nt.StreamEntry[] = [
+        { stream: new PassThrough(), path: 'same.txt' },
+        { stream: new PassThrough(), path: 'same.txt' },
+      ];
+      nt.make(tracker, folder, entries, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.equal('Duplicate stream path: same.txt');
+        done();
       });
     });
   });

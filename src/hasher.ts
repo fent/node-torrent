@@ -1,11 +1,13 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { IncomingMessage } from 'node:http';
 import path from 'node:path';
 import { type Readable, Stream } from 'node:stream';
 import { parallel } from 'async';
 import StreamSpeed from 'streamspeed';
 
 import queue, { type Queue } from './queue';
+import { isValidPathSegment } from './schema';
 import * as util from './util';
 
 /**
@@ -37,7 +39,8 @@ export interface FileEntry {
 
 export interface StreamEntry {
   stream: Readable;
-  path: string | string[];
+  /** Defaults to the stream's inferred path, or the torrent name. */
+  path?: string | string[];
   length?: number;
 }
 
@@ -67,6 +70,64 @@ export const isReadableStream = (val: unknown): val is Readable =>
 
 export const isStreamEntry = (val: unknown): val is StreamEntry =>
   typeof val === 'object' && val !== null && 'stream' in val;
+
+/**
+ * Infers a path from a stream that knows where its data comes from,
+ * such as an `fs.ReadStream`.
+ */
+const inferStreamPath = (stream: Readable): string[] | null => {
+  const streamPath = (stream as { path?: unknown }).path;
+  if (typeof streamPath === 'string') return [path.basename(streamPath)];
+  if (Buffer.isBuffer(streamPath)) {
+    return [path.basename(streamPath.toString())];
+  }
+  return null;
+};
+
+const getReadStreamLength = (
+  stream: fs.ReadStream,
+): Promise<number | undefined> => {
+  // A partially read stream no longer represents its full file.
+  if (stream.bytesRead > 0 || !stream.path) return Promise.resolve(undefined);
+
+  return new Promise((resolve) => {
+    fs.stat(stream.path as fs.PathLike, (err, stat) => {
+      if (err || !stat.isFile()) {
+        resolve(undefined);
+        return;
+      }
+
+      const range = stream as fs.ReadStream & { start?: number; end?: number };
+      const start = typeof range.start === 'number' ? range.start : 0;
+      const end = Number.isFinite(range.end)
+        ? (range.end as number)
+        : stat.size - 1;
+      const lastByte = Math.min(end, stat.size - 1);
+      resolve(Math.max(0, lastByte - start + 1));
+    });
+  });
+};
+
+/**
+ * Infers a stream's length when that information is cheap and reliable.
+ * `fs.ReadStream` lengths come from the file size, adjusted for any
+ * `start`/`end` range. HTTP responses can use `Content-Length`.
+ */
+const inferStreamLength = (stream: Readable): Promise<number | undefined> => {
+  if (stream instanceof fs.ReadStream) return getReadStreamLength(stream);
+
+  if (stream instanceof IncomingMessage) {
+    const header = stream.headers['content-length'];
+    if (typeof header === 'string') {
+      const length = Number.parseInt(header, 10);
+      if (Number.isInteger(length) && length >= 0) {
+        return Promise.resolve(length);
+      }
+    }
+  }
+
+  return Promise.resolve(undefined);
+};
 
 /**
  * Allows arrays of objects with a `path` property to be
@@ -138,51 +199,157 @@ export default class Hasher extends Stream {
       });
     }
 
-    if (isReadableStream(list[0]) || isStreamEntry(list[0])) {
+    const isStreamInput = (item: unknown): item is Readable | StreamEntry =>
+      isReadableStream(item) || isStreamEntry(item);
+    const streamCount = list.filter(isStreamInput).length;
+
+    // The piece order depends on the order of the input list, so mixing
+    // streams with file paths would be ambiguous.
+    if (streamCount > 0 && streamCount < list.length) {
+      process.nextTick(() => {
+        this.emit(
+          'error',
+          new Error('Cannot mix streams with file paths in the same list'),
+        );
+      });
+      return;
+    }
+
+    if (streamCount > 0) {
+      const baseName = path.basename(this.dir) || 'stream';
       const streamItems = (list as Array<Readable | StreamEntry>).map(
         (item) => {
           if (isStreamEntry(item)) {
-            const itemPath = Array.isArray(item.path)
-              ? item.path
-              : util.splitPath(item.path);
+            const rawPath = item.path;
+            let itemPath: string[];
+            if (rawPath == null) {
+              itemPath = inferStreamPath(item.stream) ?? [baseName];
+            } else if (Array.isArray(rawPath)) {
+              itemPath = rawPath;
+            } else {
+              itemPath = util.splitPath(rawPath);
+            }
             return {
               stream: item.stream,
               path: itemPath,
               length: item.length,
+              autoNamed: rawPath == null,
             };
           }
-          const streamPath =
-            'path' in item && typeof item.path === 'string'
-              ? [path.basename(item.path)]
-              : [path.basename(this.dir)];
+          const streamPath = inferStreamPath(item) ?? [baseName];
           return {
             stream: item,
             path: streamPath,
+            length: undefined,
+            autoNamed: true,
           };
         },
       );
 
-      if (streamItems.every((item) => typeof item.length === 'number')) {
-        this.files = streamItems.map((item) => ({
-          length: item.length as number,
-          path: item.path,
-        }));
-        this._CreateFileTasks();
-        streamItems.forEach((item, i) => {
-          this.filetasks[i].stream = item.stream;
-        });
-        process.nextTick(() => {
-          this.ready = true;
-          this.emit('ready');
-          this._start();
+      // Validate paths and lengths before consuming any streams.
+      for (const item of streamItems) {
+        const label = item.path.join('/');
+        if (
+          item.path.length === 0 ||
+          !item.path.every(
+            (seg) =>
+              typeof seg === 'string' && isValidPathSegment(Buffer.from(seg)),
+          )
+        ) {
+          process.nextTick(() => {
+            this.emit('error', new Error(`Path traversal detected: ${label}`));
+          });
+          return;
+        }
+        if (
+          item.length !== undefined &&
+          (!Number.isInteger(item.length) || item.length < 0)
+        ) {
+          process.nextTick(() => {
+            this.emit(
+              'error',
+              new Error(
+                `Invalid stream length for "${label}": must be a non-negative integer`,
+              ),
+            );
+          });
+          return;
+        }
+      }
+
+      // Reserve explicitly named paths so generated names don't collide.
+      const usedPaths = new Set<string>();
+      for (const item of streamItems) {
+        if (item.autoNamed) continue;
+        const key = item.path.join('/');
+        if (usedPaths.has(key)) {
+          process.nextTick(() => {
+            this.emit('error', new Error(`Duplicate stream path: ${key}`));
+          });
+          return;
+        }
+        usedPaths.add(key);
+      }
+
+      // Give unnamed streams unique names.
+      for (const item of streamItems) {
+        if (!item.autoNamed) continue;
+        const basePath = item.path;
+        let candidate = basePath;
+        let suffix = 0;
+        while (usedPaths.has(candidate.join('/'))) {
+          suffix++;
+          candidate = [
+            ...basePath.slice(0, -1),
+            `${basePath[basePath.length - 1]}-${suffix}`,
+          ];
+        }
+        item.path = candidate;
+        usedPaths.add(candidate.join('/'));
+      }
+
+      const begin = () => {
+        if (streamItems.every((item) => typeof item.length === 'number')) {
+          this.files = streamItems.map((item) => ({
+            length: item.length as number,
+            path: item.path,
+          }));
+          this._CreateFileTasks();
+          streamItems.forEach((item, i) => {
+            this.filetasks[i].stream = item.stream;
+          });
+          process.nextTick(() => {
+            this.ready = true;
+            this.emit('ready');
+            this._start();
+          });
+        } else {
+          this.unknownLengths = true;
+          process.nextTick(() => {
+            this.ready = true;
+            this.emit('ready');
+            this._startStreams(streamItems);
+          });
+        }
+      };
+
+      if (streamItems.some((item) => item.length === undefined)) {
+        Promise.all(
+          streamItems.map((item) =>
+            item.length === undefined
+              ? inferStreamLength(item.stream)
+              : Promise.resolve(item.length),
+          ),
+        ).then((lengths) => {
+          lengths.forEach((length, i) => {
+            if (streamItems[i].length === undefined) {
+              streamItems[i].length = length;
+            }
+          });
+          begin();
         });
       } else {
-        this.unknownLengths = true;
-        process.nextTick(() => {
-          this.ready = true;
-          this.emit('ready');
-          this._startStreams(streamItems);
-        });
+        begin();
       }
       return;
     }
@@ -316,22 +483,28 @@ export default class Hasher extends Stream {
       // Keep track how much has been read.
       let readSoFar = 0;
       let pieceIndex = task.piece;
+      let finished = false;
+
+      const finish = (err?: Error) => {
+        if (finished) return;
+        finished = true;
+        if (err && !this.err) this.emit('error', err);
+        callback();
+      };
 
       // Open file for reading.
-      let rs = task.stream;
-      let file: string;
-      if (!rs) {
-        const baseDir = path.resolve(this.dir);
-        file = path.resolve(baseDir, ...task.path);
-        const relative = path.relative(baseDir, file);
-        if (relative.startsWith('..') || path.isAbsolute(relative)) {
-          this.emit('error', new Error(`Path traversal detected: ${file}`));
-          return callback();
-        }
-        rs = fs.createReadStream(file);
-      } else {
-        file = path.join(this.dir, ...task.path);
+      const baseDir = path.resolve(this.dir);
+      const file = path.resolve(baseDir, ...task.path);
+      const relative = path.relative(baseDir, file);
+      if (
+        relative.startsWith('..') ||
+        path.isAbsolute(relative) ||
+        !task.path.every((seg) => isValidPathSegment(Buffer.from(seg)))
+      ) {
+        finish(new Error(`Path traversal detected: ${file}`));
+        return;
       }
+      const rs = task.stream || fs.createReadStream(file);
       this.streamGroup.add(rs);
 
       rs.on('open', () => {
@@ -339,7 +512,22 @@ export default class Hasher extends Stream {
       });
 
       rs.on('data', (chunk: string | Buffer) => {
+        if (finished) return;
+        if (this.err) {
+          rs.destroy();
+          finish();
+          return;
+        }
         const data = chunk as Buffer;
+        if (readSoFar + data.length > task.length) {
+          rs.destroy();
+          finish(
+            new Error(
+              `Stream length mismatch for "${file}": expected ${task.length} bytes but received more`,
+            ),
+          );
+          return;
+        }
         // Recalculate the index of current piece based on `readSoFar`.
         pieceIndex =
           task.piece + Math.floor((task.offset + readSoFar) / this.pieceLength);
@@ -385,18 +573,27 @@ export default class Hasher extends Stream {
 
       // Close this file when there is an error or finished reading.
       rs.on('error', (err: Error) => {
-        this.emit('error', err);
-        callback();
+        finish(err);
       });
 
       rs.on('end', () => {
-        callback();
+        if (finished) return;
+        if (readSoFar !== task.length) {
+          finish(
+            new Error(
+              `Stream length mismatch for "${file}": expected ${task.length} bytes but received ${readSoFar}`,
+            ),
+          );
+          return;
+        }
+        finish();
       });
     }, this.maxFiles);
 
     // When all file queues are finished, join all the pieces.
     filesqueue.drain = () => {
       this.hashing = false;
+      if (this.err) return;
       this.emit('end');
     };
 
@@ -423,12 +620,23 @@ export default class Hasher extends Stream {
 
     const filesqueue = queue<{ stream: Readable; path: string[] }>(
       (item, callback) => {
+        if (this.err || this.stopped) return callback();
+
         let fileLength = 0;
+        let finished = false;
         const file = path.join(this.dir, ...item.path);
         const rs = item.stream;
         this.streamGroup.add(rs);
 
+        const finish = (err?: Error) => {
+          if (finished) return;
+          finished = true;
+          if (err && !this.err) this.emit('error', err);
+          callback();
+        };
+
         rs.on('data', (chunk: string | Buffer) => {
+          if (finished) return;
           const data = chunk as Buffer;
           fileLength += data.length;
           this.totalSize += data.length;
@@ -460,16 +668,16 @@ export default class Hasher extends Stream {
         });
 
         rs.on('error', (err) => {
-          this.emit('error', err);
-          callback();
+          finish(err);
         });
 
         rs.on('end', () => {
+          if (finished) return;
           this.files.push({
             length: fileLength,
             path: item.path,
           });
-          callback();
+          finish();
         });
       },
       1,

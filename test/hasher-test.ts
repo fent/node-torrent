@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import { IncomingMessage } from 'node:http';
+import { Socket } from 'node:net';
 import path from 'node:path';
 import stream from 'node:stream';
 import { expect } from 'chai';
@@ -219,5 +221,308 @@ describe('Hasher', () => {
       expect(err.message).to.contain('Path traversal detected');
       done();
     });
+  });
+
+  it('Emits error when stream task path attempts path traversal', (done) => {
+    const maliciousTask = [
+      {
+        stream: new stream.PassThrough(),
+        length: 10,
+        path: ['..', 'secret.txt'],
+      },
+    ];
+    const hasher = new Hasher(folder, maliciousTask);
+    hasher.on('error', (err) => {
+      expect(err.message).to.contain('Path traversal detected');
+      done();
+    });
+  });
+
+  it('Emits error when a stream path is empty', (done) => {
+    const hasher = new Hasher(folder, [
+      { stream: new stream.PassThrough(), path: [] },
+    ]);
+    hasher.on('error', (err) => {
+      expect(err.message).to.contain('Path traversal detected');
+      done();
+    });
+  });
+
+  it('Emits error when a stream path has non-string segments', (done) => {
+    const hasher = new Hasher(folder, [
+      {
+        stream: new stream.PassThrough(),
+        path: [1] as unknown as string[],
+      },
+    ]);
+    hasher.on('error', (err) => {
+      expect(err.message).to.contain('Path traversal detected');
+      done();
+    });
+  });
+
+  it('Falls back to "stream" when the directory has no basename', (done) => {
+    const pt = new stream.PassThrough();
+    const hasher = new Hasher('/', [pt]);
+    hasher.on('end', () => {
+      expect(hasher.files[0].path).to.deep.equal(['stream']);
+      done();
+    });
+    pt.end(Buffer.alloc(10));
+  });
+
+  it('Stops other in-flight streams after an error', (done) => {
+    const first = new stream.PassThrough();
+    const second = new stream.PassThrough();
+    const third = new stream.PassThrough();
+    const hasher = new Hasher(
+      folder,
+      [
+        { stream: first, path: 'first.txt', length: 5 },
+        { stream: second, path: 'second.txt', length: 5 },
+        { stream: third, path: 'third.txt', length: 5 },
+      ],
+      null,
+      { maxFiles: 2, stopOnErr: true },
+    );
+    hasher.on('ready', () => {
+      setImmediate(() => {
+        first.emit('error', new Error('boom'));
+        first.emit('error', new Error('boom again'));
+        first.write(Buffer.alloc(1));
+        first.end();
+      });
+    });
+    hasher.on('error', (err) => {
+      expect(err.message).to.equal('boom');
+      second.write(Buffer.alloc(5));
+      setImmediate(() => {
+        expect(second.destroyed).to.equal(true);
+        done();
+      });
+    });
+  });
+
+  it('Only emits the first error when stopOnErr is true', (done) => {
+    const first = new stream.PassThrough();
+    const second = new stream.PassThrough();
+    const hasher = new Hasher(
+      folder,
+      [
+        { stream: first, path: 'first.txt', length: 5 },
+        { stream: second, path: 'second.txt', length: 5 },
+      ],
+      null,
+      { maxFiles: 2, stopOnErr: true },
+    );
+    let errors = 0;
+    hasher.on('error', () => {
+      errors++;
+    });
+    hasher.on('ready', () => {
+      setImmediate(() => {
+        first.emit('error', new Error('one'));
+        second.emit('error', new Error('two'));
+        setImmediate(() => {
+          expect(errors).to.equal(1);
+          done();
+        });
+      });
+    });
+  });
+
+  it('Stops processing remaining unknown-length streams after an error', (done) => {
+    const first = new stream.PassThrough();
+    const second = new stream.PassThrough();
+    let secondRead = false;
+    second.on('data', () => {
+      secondRead = true;
+    });
+    const hasher = new Hasher(folder, [first, second], null, {
+      stopOnErr: true,
+    });
+    hasher.on('ready', () => {
+      setImmediate(() => {
+        first.emit('error', new Error('boom'));
+        first.emit('error', new Error('boom again'));
+        first.write(Buffer.alloc(1));
+        first.end();
+      });
+    });
+    hasher.on('error', (err) => {
+      expect(err.message).to.equal('boom');
+      setImmediate(() => {
+        expect(secondRead).to.equal(false);
+        done();
+      });
+    });
+  });
+
+  it('Infers a path and length from an fs.ReadStream with a Buffer path', (done) => {
+    const rs = fs.createReadStream(Buffer.from(path.join(folder, 'click.jpg')));
+    const hasher = new Hasher(folder, [rs]);
+    hasher.on('ready', () => {
+      expect(hasher.unknownLengths).to.be.false;
+      expect(hasher.files[0].path).to.deep.equal(['click.jpg']);
+      expect(hasher.files[0].length).to.equal(87582);
+    });
+    hasher.on('end', done);
+    hasher.on('error', done);
+  });
+
+  it('Does not infer a length from a partially read stream', (done) => {
+    const rs = fs.createReadStream(path.join(folder, 'click.jpg'));
+    rs.once('data', (chunk) => {
+      rs.pause();
+      const hasher = new Hasher(folder, [rs]);
+      hasher.on('ready', () => {
+        expect(hasher.unknownLengths).to.be.true;
+        expect(hasher.files).to.deep.equal([]);
+        rs.resume();
+      });
+      hasher.on('end', () => {
+        expect(hasher.files[0].length).to.equal(87582 - chunk.length);
+        done();
+      });
+      hasher.on('error', done);
+    });
+  });
+
+  it('Does not infer a length when an fs.ReadStream has no path', (done) => {
+    fs.open(path.join(folder, 'click.jpg'), 'r', (err, fd) => {
+      if (err) return done(err);
+      const rs = fs.createReadStream('', { fd });
+      const hasher = new Hasher(folder, [rs]);
+      hasher.on('ready', () => {
+        expect(hasher.unknownLengths).to.be.true;
+      });
+      hasher.on('end', () => {
+        expect(hasher.files[0]).to.deep.equal({
+          length: 87582,
+          path: ['files'],
+        });
+        done();
+      });
+      hasher.on('error', done);
+    });
+  });
+
+  it('Falls back to unknown length when stat fails', (done) => {
+    const originalStat = fs.stat;
+    (
+      fs as unknown as {
+        stat: (_p: unknown, cb: (err: Error) => void) => void;
+      }
+    ).stat = (_p, cb) => {
+      (fs as unknown as { stat: typeof fs.stat }).stat = originalStat;
+      cb(new Error('stat boom'));
+    };
+    const rs = fs.createReadStream(path.join(folder, 'click.jpg'));
+    const hasher = new Hasher(folder, [rs]);
+    hasher.on('ready', () => {
+      expect(hasher.unknownLengths).to.be.true;
+    });
+    hasher.on('end', done);
+    hasher.on('error', (err) => {
+      (fs as unknown as { stat: typeof fs.stat }).stat = originalStat;
+      done(err);
+    });
+  });
+
+  it('Falls back to unknown length when stat is not a file', (done) => {
+    const originalStat = fs.stat;
+    (
+      fs as unknown as {
+        stat: (
+          _p: unknown,
+          cb: (err: null, stat: { isFile: () => boolean }) => void,
+        ) => void;
+      }
+    ).stat = (_p, cb) => {
+      (fs as unknown as { stat: typeof fs.stat }).stat = originalStat;
+      cb(null, { isFile: () => false });
+    };
+    const rs = fs.createReadStream(path.join(folder, 'click.jpg'));
+    const hasher = new Hasher(folder, [rs]);
+    hasher.on('ready', () => {
+      expect(hasher.unknownLengths).to.be.true;
+    });
+    hasher.on('end', done);
+    hasher.on('error', (err) => {
+      (fs as unknown as { stat: typeof fs.stat }).stat = originalStat;
+      done(err);
+    });
+  });
+
+  it('Infers length from an HTTP Content-Length header', (done) => {
+    const res = new IncomingMessage(new Socket());
+    res.headers = { 'content-length': '10' };
+    const hasher = new Hasher(folder, [res]);
+    hasher.on('ready', () => {
+      expect(hasher.unknownLengths).to.be.false;
+      expect(hasher.files[0].length).to.equal(10);
+    });
+    hasher.on('end', done);
+    hasher.on('error', done);
+    res.push(Buffer.alloc(10));
+    res.push(null);
+  });
+
+  it('Ignores a non-string Content-Length header', (done) => {
+    const res = new IncomingMessage(new Socket());
+    res.headers = { 'content-length': 10 as unknown as string };
+    const hasher = new Hasher(folder, [res]);
+    hasher.on('ready', () => {
+      expect(hasher.unknownLengths).to.be.true;
+    });
+    hasher.on('end', done);
+    hasher.on('error', done);
+    res.push(Buffer.alloc(10));
+    res.push(null);
+  });
+
+  it('Ignores an invalid Content-Length header', (done) => {
+    const res = new IncomingMessage(new Socket());
+    res.headers = { 'content-length': 'not-a-number' };
+    const hasher = new Hasher(folder, [res]);
+    hasher.on('ready', () => {
+      expect(hasher.unknownLengths).to.be.true;
+    });
+    hasher.on('end', done);
+    hasher.on('error', done);
+    res.push(Buffer.alloc(10));
+    res.push(null);
+  });
+
+  it('Ignores a negative Content-Length header', (done) => {
+    const res = new IncomingMessage(new Socket());
+    res.headers = { 'content-length': '-1' };
+    const hasher = new Hasher(folder, [res]);
+    hasher.on('ready', () => {
+      expect(hasher.unknownLengths).to.be.true;
+    });
+    hasher.on('end', done);
+    hasher.on('error', done);
+    res.push(Buffer.alloc(10));
+    res.push(null);
+  });
+
+  it('Infers only the lengths that are missing', (done) => {
+    const explicit = new stream.PassThrough();
+    const file = fs.createReadStream(path.join(folder, 'click.jpg'));
+    const hasher = new Hasher(folder, [
+      { stream: explicit, path: 'explicit.txt', length: 10 },
+      { stream: file, path: 'click.jpg' },
+    ]);
+    hasher.on('ready', () => {
+      expect(hasher.unknownLengths).to.be.false;
+      expect(hasher.files).to.deep.equal([
+        { length: 10, path: ['explicit.txt'] },
+        { length: 87582, path: ['click.jpg'] },
+      ]);
+    });
+    hasher.on('end', done);
+    hasher.on('error', done);
+    explicit.end(Buffer.alloc(10));
   });
 });

@@ -35,11 +35,15 @@ export interface MakeOptions {
   multimode?: boolean;
 }
 
+/**
+ * Inputs accepted by `make`. Arrays cannot mix streams with file paths.
+ */
 export type MakeFiles =
   | string
+  | string[]
   | Readable
   | StreamEntry
-  | Array<string | Readable | StreamEntry>;
+  | Array<Readable | StreamEntry>;
 
 export type MakeCallback = (err: Error | null, torrent?: Torrent) => void;
 
@@ -151,6 +155,31 @@ export function make(
   // Check announce URL.
   if (!util.isURL(announce)) {
     err = Error(`Not a URL: ${announce}`);
+    process.nextTick(() => {
+      hasher.destroy();
+      hasher.emit('error', err);
+      cb(err);
+    });
+    return hasher;
+  }
+
+  // Check piece length option.
+  if (
+    opts.pieceLength != null &&
+    (!util.isInteger(opts.pieceLength) || opts.pieceLength < 14)
+  ) {
+    err = Error('`opts.pieceLength` must be an integer of at least 14');
+    process.nextTick(() => {
+      hasher.destroy();
+      hasher.emit('error', err);
+      cb(err);
+    });
+    return hasher;
+  }
+
+  // Check custom name option.
+  if (opts.name != null && !schema.isValidPathSegment(Buffer.from(opts.name))) {
+    err = Error('`name` contains invalid characters');
     process.nextTick(() => {
       hasher.destroy();
       hasher.emit('error', err);
