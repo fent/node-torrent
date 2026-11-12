@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { Hasher, make, makeWrite, read, Torrent } from '../src';
+import { Hasher, make, makeWrite, read, Torrent } from '..';
 
 describe('Exports', () => {
   it('Exports expected named functions and classes', () => {
