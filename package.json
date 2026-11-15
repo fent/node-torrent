@@ -44,7 +44,7 @@
     "typescript": "^5.9.3"
   },
   "engines": {
-    "node": ">=6"
+    "node": ">=20"
   },
   "license": "MIT"
 }
