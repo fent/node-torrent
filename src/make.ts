@@ -268,7 +268,7 @@ export function make(
 
     // Write first part of torrent to stream.
     process.nextTick(() => {
-      hasher.emit('data', data.slice(0, piecesPosition));
+      hasher.emit('data', data.subarray(0, piecesPosition));
     });
   });
 
@@ -287,7 +287,7 @@ export function make(
 
     // Note that listeners to this `data` event will be called before
     // listeners to the `end` event since its emitted inside this listener.
-    hasher.emit('data', data.slice(piecesPosition + piecesLength));
+    hasher.emit('data', data.subarray(piecesPosition + piecesLength));
     cb(null, new Torrent(metadata));
   });
 

@@ -687,7 +687,7 @@ export default class Hasher extends Stream {
       this.hashing = false;
       if (this.err) return;
       if (bytesWritten > 0) {
-        const lastSlice = pieceBuffer.slice(0, bytesWritten);
+        const lastSlice = pieceBuffer.subarray(0, bytesWritten);
         const buf = Buffer.from(sha1(lastSlice));
         const lastFile = path.join(
           this.dir,
