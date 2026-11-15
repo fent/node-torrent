@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { PassThrough } from 'node:stream';
 import { expect } from 'chai';
 import * as nt from '../src';
 import type Torrent from '../src/torrent';
@@ -242,6 +243,148 @@ describe('Make', () => {
       nt.make(tracker, '/path/that/does/not/exist', files, (err) => {
         expect(err).to.be.an('error');
         done();
+      });
+    });
+  });
+
+  describe('Stream inputs', () => {
+    it('Supports a stream without a directory argument', (done) => {
+      const pt = new PassThrough();
+      nt.make(tracker, pt, options, (err, torrent) => {
+        expect(err).to.be.null;
+        expect(torrent?.metadata.info.name).to.equal('stream');
+        expect(torrent?.metadata.info.length).to.equal(87582);
+        done();
+      });
+      fs.createReadStream(path.join(folder, 'click.jpg')).pipe(pt);
+    });
+
+    it('Names a path-less stream after opts.name when no directory is given', (done) => {
+      const pt = new PassThrough();
+      const opts = { ...options, name: 'custom', multimode: true };
+      nt.make(tracker, pt, opts, (err, torrent) => {
+        expect(err).to.be.null;
+        expect(torrent?.metadata.info.name).to.equal('custom');
+        expect(torrent?.metadata.info.files?.[0].path).to.deep.equal([
+          'custom',
+        ]);
+        done();
+      });
+      pt.end(Buffer.alloc(100));
+    });
+
+    it('Supports StreamEntry arrays without a directory argument', (done) => {
+      const entries: nt.StreamEntry[] = [
+        {
+          stream: fs.createReadStream(path.join(folder, 'click.jpg')),
+          path: 'click.jpg',
+        },
+      ];
+      nt.make(tracker, entries, (err, torrent) => {
+        expect(err).to.be.null;
+        expect(torrent?.metadata.info.name).to.equal('click.jpg');
+        done();
+      });
+    });
+
+    it('Supports null options without a directory argument', (done) => {
+      const rs = new PassThrough();
+      rs.end(Buffer.alloc(10));
+      nt.make(
+        tracker,
+        rs,
+        null as unknown as nt.MakeOptions,
+        (err, torrent) => {
+          expect(err).to.be.null;
+          expect(torrent).to.be.an('object');
+          done();
+        },
+      );
+    });
+
+    it('Supports a single ReadStream (unknown length)', (done) => {
+      const rs = fs.createReadStream(path.join(folder, 'click.jpg'));
+      nt.make(tracker, folder, rs, options, (err, torrent) => {
+        expect(err).to.be.null;
+        expect(torrent?.infoHash()).to.equal(
+          '2fff646b166f37f4fd131778123b25a01639e0b3',
+        );
+        done();
+      });
+    });
+
+    it('Supports a PassThrough stream without path and pipes to nt.read', (done) => {
+      const pt = new PassThrough();
+      fs.createReadStream(path.join(folder, 'click.jpg')).pipe(pt);
+      const makeStream = nt.make(
+        tracker,
+        path.join(folder, 'click.jpg'),
+        pt,
+        options,
+      );
+      nt.read(makeStream, (err, torrent) => {
+        expect(err).to.be.null;
+        expect(torrent?.infoHash()).to.equal(
+          '2fff646b166f37f4fd131778123b25a01639e0b3',
+        );
+        done();
+      });
+    });
+
+    it('Supports multiple StreamEntry objects with unknown lengths and multi-piece chunks', (done) => {
+      const entries: nt.StreamEntry[] = [
+        {
+          stream: fs.createReadStream(path.join(folder, 'click.jpg')),
+          path: 'click.jpg',
+        },
+        {
+          stream: fs.createReadStream(path.join(folder, 'heart.jpg')),
+          path: ['heart.jpg'],
+        },
+      ];
+      nt.make(tracker, folder, entries, { pieceLength: 15 }, (err, torrent) => {
+        expect(err).to.be.null;
+        expect(torrent?.metadata.info.files?.length).to.equal(2);
+        done();
+      });
+    });
+
+    it('Supports StreamEntry with known length (streaming header early)', (done) => {
+      const entry: nt.StreamEntry = {
+        stream: fs.createReadStream(path.join(folder, 'click.jpg')),
+        path: 'click.jpg',
+        length: 87582,
+      };
+      const makeStream = nt.make(tracker, folder, entry, options);
+      nt.read(makeStream, (err, torrent) => {
+        expect(err).to.be.null;
+        expect(torrent?.infoHash()).to.equal(
+          '2fff646b166f37f4fd131778123b25a01639e0b3',
+        );
+        done();
+      });
+    });
+
+    it('Supports unknown-length stream whose total size is an exact multiple of pieceLength', (done) => {
+      const pt = new PassThrough();
+      const makeStream = nt.make(tracker, folder, pt, { pieceLength: 14 });
+      nt.read(makeStream, (err, torrent) => {
+        expect(err).to.be.null;
+        expect(torrent?.metadata.info.length).to.equal(32768);
+        done();
+      });
+      pt.end(Buffer.alloc(32768, 'a'));
+    });
+
+    it('Handles errors emitted by input stream', (done) => {
+      const pt = new PassThrough();
+      nt.make(tracker, folder, pt, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.equal('stream boom');
+        done();
+      });
+      setImmediate(() => {
+        pt.emit('error', new Error('stream boom'));
       });
     });
   });

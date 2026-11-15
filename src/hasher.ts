@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { Stream } from 'node:stream';
+import { type Readable, Stream } from 'node:stream';
 import { parallel } from 'async';
 import StreamSpeed from 'streamspeed';
 
@@ -35,9 +35,18 @@ export interface FileEntry {
   md5sum?: string;
 }
 
+export interface StreamEntry {
+  stream: Readable;
+  path: string | string[];
+  length?: number;
+}
+
+export type HasherInput = string | FileEntry | Readable | StreamEntry;
+
 export interface FileTask extends FileEntry {
   piece: number;
   offset: number;
+  stream?: Readable;
 }
 
 export interface PieceBuffer {
@@ -50,6 +59,14 @@ export interface HasherOptions {
   maxFiles?: number;
   stopOnErr?: boolean;
 }
+
+export const isReadableStream = (val: unknown): val is Readable =>
+  typeof val === 'object' &&
+  val !== null &&
+  typeof (val as Readable).pipe === 'function';
+
+export const isStreamEntry = (val: unknown): val is StreamEntry =>
+  typeof val === 'object' && val !== null && 'stream' in val;
 
 /**
  * Allows arrays of objects with a `path` property to be
@@ -81,13 +98,14 @@ export default class Hasher extends Stream {
   public totalSize: number;
   public lastPieceLength: number;
   public streamGroup: StreamSpeed;
+  public unknownLengths: boolean;
 
   /**
    * Calculates piece hashes of file list.
    */
   constructor(
     dir: string,
-    list: string[] | FileEntry[],
+    list: HasherInput[],
     pieceLength?: number | null,
     options?: HasherOptions,
   ) {
@@ -107,6 +125,7 @@ export default class Hasher extends Stream {
     this.hashing = false;
     this.paused = false;
     this.stopped = false;
+    this.unknownLengths = false;
     this.readable = false;
     this.filetasks = [];
     this.totalSize = 0;
@@ -117,6 +136,55 @@ export default class Hasher extends Stream {
       this.once('error', (err: Error) => {
         this.err = err;
       });
+    }
+
+    if (isReadableStream(list[0]) || isStreamEntry(list[0])) {
+      const streamItems = (list as Array<Readable | StreamEntry>).map(
+        (item) => {
+          if (isStreamEntry(item)) {
+            const itemPath = Array.isArray(item.path)
+              ? item.path
+              : util.splitPath(item.path);
+            return {
+              stream: item.stream,
+              path: itemPath,
+              length: item.length,
+            };
+          }
+          const streamPath =
+            'path' in item && typeof item.path === 'string'
+              ? [path.basename(item.path)]
+              : [path.basename(this.dir)];
+          return {
+            stream: item,
+            path: streamPath,
+          };
+        },
+      );
+
+      if (streamItems.every((item) => typeof item.length === 'number')) {
+        this.files = streamItems.map((item) => ({
+          length: item.length as number,
+          path: item.path,
+        }));
+        this._CreateFileTasks();
+        streamItems.forEach((item, i) => {
+          this.filetasks[i].stream = item.stream;
+        });
+        process.nextTick(() => {
+          this.ready = true;
+          this.emit('ready');
+          this._start();
+        });
+      } else {
+        this.unknownLengths = true;
+        process.nextTick(() => {
+          this.ready = true;
+          this.emit('ready');
+          this._startStreams(streamItems);
+        });
+      }
+      return;
     }
 
     fs.access(dir, (err) => {
@@ -204,7 +272,7 @@ export default class Hasher extends Stream {
   }
 
   /**
-   * Starts hashing.
+   * Starts the actual hashing process
    */
   _start(): void {
     if (!this.ready) {
@@ -250,14 +318,20 @@ export default class Hasher extends Stream {
       let pieceIndex = task.piece;
 
       // Open file for reading.
-      const baseDir = path.resolve(this.dir);
-      const file = path.resolve(baseDir, ...task.path);
-      const relative = path.relative(baseDir, file);
-      if (relative.startsWith('..') || path.isAbsolute(relative)) {
-        this.emit('error', new Error(`Path traversal detected: ${file}`));
-        return callback();
+      let rs = task.stream;
+      let file: string;
+      if (!rs) {
+        const baseDir = path.resolve(this.dir);
+        file = path.resolve(baseDir, ...task.path);
+        const relative = path.relative(baseDir, file);
+        if (relative.startsWith('..') || path.isAbsolute(relative)) {
+          this.emit('error', new Error(`Path traversal detected: ${file}`));
+          return callback();
+        }
+        rs = fs.createReadStream(file);
+      } else {
+        file = path.join(this.dir, ...task.path);
       }
-      const rs = fs.createReadStream(file);
       this.streamGroup.add(rs);
 
       rs.on('open', () => {
@@ -266,7 +340,6 @@ export default class Hasher extends Stream {
 
       rs.on('data', (chunk: string | Buffer) => {
         const data = chunk as Buffer;
-
         // Recalculate the index of current piece based on `readSoFar`.
         pieceIndex =
           task.piece + Math.floor((task.offset + readSoFar) / this.pieceLength);
@@ -330,6 +403,100 @@ export default class Hasher extends Stream {
     // Start queueing jobs.
     this.filetasks.forEach((filetask) => {
       filesqueue.push(filetask);
+    });
+  }
+
+  /**
+   * Sequentially hashes streams of unknown length.
+   */
+  _startStreams(
+    streamItems: Array<{ stream: Readable; path: string[] }>,
+  ): void {
+    this.hashing = true;
+    this.stopped = false;
+    this.streamGroup = new StreamSpeed();
+    this.totalSize = 0;
+
+    const pieceBuffer = Buffer.alloc(this.pieceLength);
+    let bytesWritten = 0;
+    let pieceIndex = 0;
+
+    const filesqueue = queue<{ stream: Readable; path: string[] }>(
+      (item, callback) => {
+        let fileLength = 0;
+        const file = path.join(this.dir, ...item.path);
+        const rs = item.stream;
+        this.streamGroup.add(rs);
+
+        rs.on('data', (chunk: string | Buffer) => {
+          const data = chunk as Buffer;
+          fileLength += data.length;
+          this.totalSize += data.length;
+
+          let offset = 0;
+          while (offset < data.length) {
+            const size = Math.min(
+              data.length - offset,
+              this.pieceLength - bytesWritten,
+            );
+            data.copy(pieceBuffer, bytesWritten, offset, offset + size);
+            bytesWritten += size;
+            offset += size;
+
+            if (bytesWritten === this.pieceLength) {
+              const buf = Buffer.from(sha1(pieceBuffer));
+              this.emit(
+                'hash',
+                pieceIndex,
+                buf,
+                file,
+                fileLength - data.length + offset - size,
+                size,
+              );
+              pieceIndex++;
+              bytesWritten = 0;
+            }
+          }
+        });
+
+        rs.on('error', (err) => {
+          this.emit('error', err);
+          callback();
+        });
+
+        rs.on('end', () => {
+          this.files.push({
+            length: fileLength,
+            path: item.path,
+          });
+          callback();
+        });
+      },
+      1,
+    );
+
+    filesqueue.drain = () => {
+      this.hashing = false;
+      if (this.err) return;
+      if (bytesWritten > 0) {
+        const lastSlice = pieceBuffer.slice(0, bytesWritten);
+        const buf = Buffer.from(sha1(lastSlice));
+        const lastFile = path.join(
+          this.dir,
+          ...this.files[this.files.length - 1].path,
+        );
+        this.emit('hash', pieceIndex, buf, lastFile, 0, bytesWritten);
+        this.lastPieceLength = bytesWritten;
+        pieceIndex++;
+      } else {
+        this.lastPieceLength = this.pieceLength;
+      }
+      this.pieces = pieceIndex;
+      this.emit('end');
+    };
+
+    streamItems.forEach((item) => {
+      filesqueue.push(item);
     });
   }
 

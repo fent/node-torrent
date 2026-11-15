@@ -1,10 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import type { Readable } from 'node:stream';
 import * as b from 'bncode';
 import Buffers from 'buffers';
 import OrderedEmitter from 'ordered-emitter';
 
-import Hasher, { type HasherOptions } from './hasher';
+import Hasher, {
+  type HasherOptions,
+  isReadableStream,
+  isStreamEntry,
+  type StreamEntry,
+} from './hasher';
 import * as schema from './schema';
 import Torrent, { type TorrentInfo, type TorrentMetadata } from './torrent';
 import * as util from './util';
@@ -29,23 +35,61 @@ export interface MakeOptions {
   multimode?: boolean;
 }
 
+export type MakeFiles =
+  | string
+  | Readable
+  | StreamEntry
+  | Array<string | Readable | StreamEntry>;
+
 export type MakeCallback = (err: Error | null, torrent?: Torrent) => void;
 
 /**
  * Makes torrent file object
  */
-export const make = (
+export function make(
   announce: string,
   dir: string,
-  files?: string | string[] | MakeOptions | MakeCallback,
+  files?: MakeFiles | MakeOptions | MakeCallback,
   options?: MakeOptions | MakeCallback,
   callback?: MakeCallback,
-): Hasher => {
+): Hasher;
+export function make(
+  announce: string,
+  files: Exclude<MakeFiles, string>,
+  options?: MakeOptions | MakeCallback,
+  callback?: MakeCallback,
+): Hasher;
+export function make(
+  announce: string,
+  dirOrFiles: string | Exclude<MakeFiles, string>,
+  ...rest: unknown[]
+): Hasher {
+  let dir: string;
+  let files: MakeFiles | MakeOptions | MakeCallback | undefined;
+  let options: MakeOptions | MakeCallback | undefined;
+  let callback: MakeCallback | undefined;
+
+  if (typeof dirOrFiles === 'string') {
+    dir = dirOrFiles;
+    [files, options, callback] = rest as [
+      typeof files,
+      typeof options,
+      typeof callback,
+    ];
+  } else {
+    // No directory given, only streams. Unnamed streams are named after
+    // `opts.name`, or `stream` by default.
+    files = dirOrFiles;
+    [options, callback] = rest as [typeof options, typeof callback];
+    const given = typeof options === 'object' ? options?.name : undefined;
+    dir = given ?? 'stream';
+  }
+
   // Handle all of the optional arguments.
   const typeofFiles = typeof files;
   const typeofOptions = typeof options;
 
-  let fileList: string[];
+  let fileList: Array<string | Readable | StreamEntry>;
   let opts: MakeOptions;
   let cb: MakeCallback;
 
@@ -53,7 +97,12 @@ export const make = (
     cb = files as MakeCallback;
     opts = {};
     fileList = ['.'];
-  } else if (typeofFiles === 'object' && !Array.isArray(files)) {
+  } else if (
+    typeofFiles === 'object' &&
+    !Array.isArray(files) &&
+    !isReadableStream(files) &&
+    !isStreamEntry(files)
+  ) {
     cb = typeofOptions === 'function' ? (options as MakeCallback) : () => {};
     opts = files as MakeOptions;
     fileList = ['.'];
@@ -66,9 +115,17 @@ export const make = (
       opts = (options as MakeOptions) || {};
     }
 
-    if (typeofFiles === 'string') fileList = [files as string];
-    else if (typeofFiles === 'undefined') fileList = ['.'];
-    else fileList = files as string[];
+    if (
+      typeofFiles === 'string' ||
+      isReadableStream(files) ||
+      isStreamEntry(files)
+    ) {
+      fileList = [files as string | Readable | StreamEntry];
+    } else if (typeofFiles === 'undefined') {
+      fileList = ['.'];
+    } else {
+      fileList = files as Array<string | Readable | StreamEntry>;
+    }
   }
 
   const hashOptions: HasherOptions = {
@@ -139,8 +196,7 @@ export const make = (
   metadata['creation date'] = Math.round(Date.now() / 1000);
   metadata.info = info;
 
-  // Wait until hasher finishes examining file lengths.
-  hasher.on('ready', () => {
+  const populateInfo = () => {
     // Multi file mode.
     if (opts.multimode || hasher.files.length > 1) {
       info.files = hasher.files;
@@ -156,10 +212,6 @@ export const make = (
     info.pieces = null;
     if (opts.private) info.private = 1;
 
-    // Generate fake pieces to encode them.
-    piecesLength = 20 * hasher.pieces;
-    info.pieces = Buffer.alloc(piecesLength);
-
     // Add additional moreInfo to info.
     for (const moreKey in opts.moreInfo) {
       // Only add moreInfo if it doesn't overwrite info.
@@ -167,6 +219,16 @@ export const make = (
         info[moreKey] = opts.moreInfo[moreKey];
       }
     }
+  };
+
+  // Wait until hasher finishes examining file lengths.
+  hasher.on('ready', () => {
+    if (hasher.unknownLengths) return;
+    populateInfo();
+
+    // Generate fake pieces to encode them.
+    piecesLength = 20 * hasher.pieces;
+    info.pieces = Buffer.alloc(piecesLength);
 
     // Bencode data.
     data = Buffer.from(b.encode(metadata), 'binary');
@@ -183,6 +245,15 @@ export const make = (
 
   // Write last part when hashing is finished.
   hasher.on('end', () => {
+    if (hasher.unknownLengths) {
+      populateInfo();
+      info.pieces = buf.toBuffer();
+      data = Buffer.from(b.encode(metadata), 'binary');
+      hasher.emit('data', data);
+      cb(null, new Torrent(metadata));
+      return;
+    }
+
     info.pieces = buf.toBuffer();
 
     // Note that listeners to this `data` event will be called before
@@ -199,7 +270,9 @@ export const make = (
   // Emit hash events to memStream in correct order.
   order.on('hash', (obj: { order: number; hash: Buffer }) => {
     buf.push(obj.hash);
-    hasher.emit('data', obj.hash);
+    if (!hasher.unknownLengths) {
+      hasher.emit('data', obj.hash);
+    }
   });
 
   // Handle stream errors.
@@ -208,7 +281,7 @@ export const make = (
   });
 
   return hasher;
-};
+}
 
 /**
  * Calls make and creates a write stream with the returned read stream.
@@ -217,7 +290,7 @@ export const makeWrite = (
   output: string,
   announce: string,
   dir: string,
-  files?: string | string[] | MakeOptions | MakeCallback,
+  files?: MakeFiles | MakeOptions | MakeCallback,
   options?: MakeOptions | MakeCallback,
   callback?: MakeCallback,
 ): Hasher => {

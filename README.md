@@ -60,7 +60,7 @@ An error can be returned if the torrent is formatted incorrectly. Does not check
 
 ### make(announceURL, dir, [files], [options], [callback(Error, Torrent)])
 
-Makes a new torrent. `dir` is root directory of the torrent. The `files` array will relatively read files from there. If files is omitted, it implicitly adds all of the files in `dir` to the torrent, including those in subdirectories. `options` can have the following:
+Makes a new torrent. `dir` is root directory of the torrent. The `files` argument can be a file path, an array of file paths, a `Readable` stream, a `{ stream, path, length? }` object, or an array of streams/stream entry objects. If `files` is omitted, it implicitly adds all of the files in `dir` to the torrent, including those in subdirectories. `options` can have the following:
 
 * `announceList` - An array of arrays of additional announce URLs.
 * `comment`
@@ -73,6 +73,8 @@ Makes a new torrent. `dir` is root directory of the torrent. The `files` array w
 `callback` is called with a possible `Error`, and a `Torrent` object when hashing is finished.
 
 `make` returns a Hasher object that emits raw bencoded `data` events.
+
+When only streams are given, `dir` can be omitted: `make(announceURL, streamOrEntries, [options], [callback(Error, Torrent)])`. Streams without a path are named after `options.name`, or `stream` by default.
 
 ### makeWrite(output, annlounce, dir, [files], [options], [callback(Error, Torrent)])
 
