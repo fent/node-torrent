@@ -460,6 +460,7 @@ export default class Hasher extends Stream {
    */
   destroy(): boolean {
     if (!this.hashing) return false;
+    this.hashing = false;
     this.stopped = true;
     this.paused = false;
 

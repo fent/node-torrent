@@ -57,6 +57,7 @@ describe('Hasher', () => {
 
       expect(hasher.destroy()).to.be.true;
       expect(hasher.stopped).to.be.true;
+      expect(hasher.hashing).to.be.false;
       done();
     });
   });
