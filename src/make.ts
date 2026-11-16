@@ -255,6 +255,10 @@ export function make(
   // Wait until hasher finishes examining file lengths.
   hasher.on('ready', () => {
     if (hasher.unknownLengths) return;
+    if (hasher.files.length === 0) {
+      hasher.emit('error', new Error('no files found'));
+      return;
+    }
     populateInfo();
 
     // Generate fake pieces to encode them.

@@ -662,5 +662,15 @@ describe('Make', () => {
         (await makePieces(['e1.bin', 'e2.bin'], { pieceLength: 14 })).length,
       ).to.equal(0);
     });
+
+    it('Errors when a directory has no files', (done) => {
+      fs.mkdirSync(path.join(dir, 'empty-dir'));
+      nt.make(tracker, dir, ['empty-dir'], (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.equal('no files found');
+        done();
+      });
+    });
+
   });
 });

@@ -381,7 +381,6 @@ export default class Hasher extends Stream {
         // Ready to start hashing.
         this.ready = true;
         this.emit('ready');
-        this.ready = true;
         this._start();
       };
 
@@ -447,6 +446,8 @@ export default class Hasher extends Stream {
       this.emit('error', new Error('Cannot start before being ready'));
       return;
     }
+    // A ready listener may have reported an error, such as no files found.
+    if (this.err) return;
     this.hashing = true;
     this.stopped = false;
 
