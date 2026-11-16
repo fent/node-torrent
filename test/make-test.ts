@@ -671,5 +671,27 @@ describe('Make', () => {
         done();
       });
     });
+
+    it('Forwards makeWrite output errors', (done) => {
+      const output = path.join(dir, 'missing', 'out.torrent');
+      const hasher = nt.makeWrite(output, tracker, folder, ['click.jpg']);
+      hasher.on('error', (err) => {
+        expect(err.message).to.contain('ENOENT');
+        done();
+      });
+    });
+
+    it('Calls the callback once when an error follows completion', (done) => {
+      let calls = 0;
+      const hasher = nt.make(tracker, folder, ['click.jpg'], (err) => {
+        calls++;
+        expect(err).to.be.null;
+        hasher.emit('error', new Error('late'));
+        setImmediate(() => {
+          expect(calls).to.equal(1);
+          done();
+        });
+      });
+    });
   });
 });

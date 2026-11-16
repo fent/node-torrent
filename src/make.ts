@@ -132,6 +132,13 @@ export function make(
     }
   }
 
+  let called = false;
+  const done: MakeCallback = (err, torrent) => {
+    if (called) return;
+    called = true;
+    cb(err, torrent);
+  };
+
   const hashOptions: HasherOptions = {
     maxFiles: opts.maxFiles,
     stopOnErr: true,
@@ -158,7 +165,7 @@ export function make(
     process.nextTick(() => {
       hasher.destroy();
       hasher.emit('error', err);
-      cb(err);
+      done(err);
     });
     return hasher;
   }
@@ -174,7 +181,7 @@ export function make(
     process.nextTick(() => {
       hasher.destroy();
       hasher.emit('error', err);
-      cb(err);
+      done(err);
     });
     return hasher;
   }
@@ -185,7 +192,7 @@ export function make(
     process.nextTick(() => {
       hasher.destroy();
       hasher.emit('error', err);
-      cb(err);
+      done(err);
     });
     return hasher;
   }
@@ -196,7 +203,7 @@ export function make(
     process.nextTick(() => {
       hasher.destroy();
       hasher.emit('error', err);
-      cb(err);
+      done(err);
     });
     return hasher;
   }
@@ -213,7 +220,7 @@ export function make(
       process.nextTick(() => {
         hasher.destroy();
         hasher.emit('error', err);
-        cb(err);
+        done(err);
       });
       return hasher;
     }
@@ -285,7 +292,7 @@ export function make(
       info.pieces = buf.toBuffer();
       data = Buffer.from(b.encode(metadata), 'binary');
       hasher.emit('data', data);
-      cb(null, new Torrent(metadata));
+      done(null, new Torrent(metadata));
       return;
     }
 
@@ -294,7 +301,7 @@ export function make(
     // Note that listeners to this `data` event will be called before
     // listeners to the `end` event since its emitted inside this listener.
     hasher.emit('data', data.subarray(piecesPosition + piecesLength));
-    cb(null, new Torrent(metadata));
+    done(null, new Torrent(metadata));
   });
 
   // listen for hash events
@@ -312,7 +319,7 @@ export function make(
 
   // Handle stream errors.
   hasher.on('error', (streamErr: Error) => {
-    cb(streamErr);
+    done(streamErr);
   });
 
   return hasher;
@@ -330,6 +337,12 @@ export const makeWrite = (
   callback?: MakeCallback,
 ): Hasher => {
   const rs = make(announce, dir, files, options, callback);
-  rs.pipe(fs.createWriteStream(output));
+  const ws = fs.createWriteStream(output);
+  // The write stream isn't returned, so surface its errors on the hasher.
+  ws.on('error', (err: Error) => {
+    rs.destroy();
+    rs.emit('error', err);
+  });
+  rs.pipe(ws);
   return rs;
 };
