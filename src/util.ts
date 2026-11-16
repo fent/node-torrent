@@ -9,10 +9,16 @@ export const isURL = (str: string | Buffer): boolean =>
   urlRegexp.test(str.toString());
 
 /**
- * Returns true if n is an integer.
+ * Returns true if n is an integer or an integer string.
  */
-export const isInteger = (n: unknown): boolean =>
-  !Number.isNaN(Number.parseInt(String(n), 10));
+export const isInteger = (n: unknown): boolean => {
+  if (typeof n === 'number') return Number.isInteger(n);
+  if (typeof n === 'string') {
+    const trimmed = n.trim();
+    return trimmed !== '' && Number.isInteger(Number(trimmed));
+  }
+  return false;
+};
 
 /**
  * Splits a path into an array, platform safe.

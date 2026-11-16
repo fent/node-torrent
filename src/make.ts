@@ -166,9 +166,11 @@ export function make(
   // Check piece length option.
   if (
     opts.pieceLength != null &&
-    (!util.isInteger(opts.pieceLength) || opts.pieceLength < 14)
+    (!util.isInteger(opts.pieceLength) ||
+      opts.pieceLength < 14 ||
+      opts.pieceLength > 30)
   ) {
-    err = Error('`opts.pieceLength` must be an integer of at least 14');
+    err = Error('`opts.pieceLength` must be an integer between 14 and 30');
     process.nextTick(() => {
       hasher.destroy();
       hasher.emit('error', err);

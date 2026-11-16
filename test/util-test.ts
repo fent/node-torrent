@@ -30,6 +30,11 @@ describe('Util', () => {
       expect(util.isInteger('abc')).to.be.false;
       expect(util.isInteger(Number.NaN)).to.be.false;
       expect(util.isInteger(undefined)).to.be.false;
+      expect(util.isInteger(1.5)).to.be.false;
+      expect(util.isInteger('1.5')).to.be.false;
+      expect(util.isInteger('12abc')).to.be.false;
+      expect(util.isInteger('')).to.be.false;
+      expect(util.isInteger(true)).to.be.false;
     });
   });
 

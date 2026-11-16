@@ -211,7 +211,7 @@ describe('Make', () => {
       nt.make(tracker, folder, files, { pieceLength: 10 }, (err) => {
         expect(err).to.be.an('error');
         expect(err?.message).to.equal(
-          '`opts.pieceLength` must be an integer of at least 14',
+          '`opts.pieceLength` must be an integer between 14 and 30',
         );
         done();
       });
@@ -226,11 +226,31 @@ describe('Make', () => {
         (err) => {
           expect(err).to.be.an('error');
           expect(err?.message).to.equal(
-            '`opts.pieceLength` must be an integer of at least 14',
+            '`opts.pieceLength` must be an integer between 14 and 30',
           );
           done();
         },
       );
+    });
+
+    it('Errors when pieceLength is greater than 30', (done) => {
+      nt.make(tracker, folder, files, { pieceLength: 31 }, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.equal(
+          '`opts.pieceLength` must be an integer between 14 and 30',
+        );
+        done();
+      });
+    });
+
+    it('Errors when pieceLength is not a whole number', (done) => {
+      nt.make(tracker, folder, files, { pieceLength: 14.5 }, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.equal(
+          '`opts.pieceLength` must be an integer between 14 and 30',
+        );
+        done();
+      });
     });
 
     it('Errors when custom name contains invalid characters', (done) => {
