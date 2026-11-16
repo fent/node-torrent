@@ -432,10 +432,11 @@ export default class Hasher extends Stream {
     });
 
     this.totalSize = totalSize;
-    this.pieces = piece + 1;
-    // Take note of the length of the last piece.
-    // The rest of the pieces will be of `this.pieceLength` length.
-    this.lastPieceLength = totalSize - this.pieceLength * piece;
+    this.pieces = Math.ceil(totalSize / this.pieceLength);
+    // The last piece holds the leftover bytes, or a full piece when the total
+    // size divides evenly. A zero-byte torrent has no pieces.
+    this.lastPieceLength =
+      this.pieces === 0 ? 0 : totalSize - this.pieceLength * (this.pieces - 1);
   }
 
   /**
@@ -697,7 +698,7 @@ export default class Hasher extends Stream {
         this.lastPieceLength = bytesWritten;
         pieceIndex++;
       } else {
-        this.lastPieceLength = this.pieceLength;
+        this.lastPieceLength = this.totalSize === 0 ? 0 : this.pieceLength;
       }
       this.pieces = pieceIndex;
       this.emit('end');

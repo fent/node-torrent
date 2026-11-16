@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { expect } from 'chai';
@@ -458,6 +459,17 @@ describe('Make', () => {
       pt.end(Buffer.alloc(32768, 'a'));
     });
 
+    it('Writes no pieces for an empty unknown-length stream', (done) => {
+      const pt = new PassThrough();
+      const makeStream = nt.make(tracker, folder, pt, { pieceLength: 14 });
+      nt.read(makeStream, (err, torrent) => {
+        if (!torrent) return done(err);
+        expect((torrent.metadata.info.pieces as Buffer).length).to.equal(0);
+        done();
+      });
+      pt.end();
+    });
+
     it('Handles errors emitted by input stream', (done) => {
       const pt = new PassThrough();
       nt.make(tracker, folder, pt, (err) => {
@@ -578,6 +590,57 @@ describe('Make', () => {
         expect(err?.message).to.equal('Duplicate stream path: same.txt');
         done();
       });
+    });
+  });
+
+  describe('Piece counts', () => {
+    let dir: string;
+
+    before(() => {
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nt-pieces-'));
+    });
+
+    after(() => {
+      fs.rmSync(dir, { recursive: true, force: true });
+    });
+
+    const makePieces = (
+      files: string[],
+      options?: nt.MakeOptions,
+    ): Promise<Buffer> =>
+      new Promise((resolve, reject) => {
+        nt.read(nt.make(tracker, dir, files, options), (err, torrent) => {
+          if (err || !torrent) return reject(err ?? new Error('No torrent'));
+          resolve(torrent.metadata.info.pieces as Buffer);
+        });
+      });
+
+    it('Writes one piece when the size equals the default pieceLength', async () => {
+      fs.writeFileSync(path.join(dir, 'exact.bin'), Buffer.alloc(262144, 1));
+      const pieces = await makePieces(['exact.bin']);
+      expect(pieces.length).to.equal(20);
+    });
+
+    it('Writes a whole piece when the total size divides evenly', async () => {
+      fs.writeFileSync(path.join(dir, 'a.bin'), Buffer.alloc(32768, 1));
+      fs.writeFileSync(path.join(dir, 'b.bin'), Buffer.alloc(32768, 2));
+      const pieces = await makePieces(['a.bin', 'b.bin'], { pieceLength: 14 });
+      expect(pieces.length).to.equal(80);
+    });
+
+    it('Writes no pieces for a zero-byte torrent', async () => {
+      fs.writeFileSync(path.join(dir, 'empty.bin'), Buffer.alloc(0));
+      expect(
+        (await makePieces(['empty.bin'], { pieceLength: 14 })).length,
+      ).to.equal(0);
+    });
+
+    it('Writes no pieces when every file is empty', async () => {
+      fs.writeFileSync(path.join(dir, 'e1.bin'), Buffer.alloc(0));
+      fs.writeFileSync(path.join(dir, 'e2.bin'), Buffer.alloc(0));
+      expect(
+        (await makePieces(['e1.bin', 'e2.bin'], { pieceLength: 14 })).length,
+      ).to.equal(0);
     });
   });
 });
