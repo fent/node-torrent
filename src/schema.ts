@@ -198,6 +198,16 @@ export const checkTorrent = (torrentInput: unknown): string | null => {
   if (info.pieces.length % 20 !== 0) {
     return '`info.pieces` length is not divisible by 20';
   }
+  const totalLength = info.files
+    ? (info.files as RawDict[]).reduce(
+        (sum, file) => sum + Number(file.length),
+        0,
+      )
+    : Number(info.length);
+  const expectedPieces = Math.ceil(totalLength / pieceLengthNum);
+  if (info.pieces.length !== expectedPieces * 20) {
+    return '`info.pieces` length does not match the total length';
+  }
   if (info.private != null && info.private !== 0 && info.private !== 1) {
     return '`info.private` can only be 0 or 1';
   }

@@ -287,6 +287,30 @@ describe('Schema', () => {
       );
     });
 
+    it('`info.pieces` length does not match the total length', () => {
+      torrent.info.pieces = Buffer.alloc(0);
+      expect(schema.checkTorrent(torrent)).to.equal(
+        '`info.pieces` length does not match the total length',
+      );
+      torrent.info.pieces = Buffer.alloc(40);
+      expect(schema.checkTorrent(torrent)).to.equal(
+        '`info.pieces` length does not match the total length',
+      );
+    });
+
+    it('Counts integer-string lengths when checking pieces', () => {
+      torrent.info = {
+        name: Buffer.from('magic'),
+        'piece length': 262144,
+        pieces: Buffer.alloc(40),
+        files: [
+          { length: '200000', path: [Buffer.from('a')] },
+          { length: '200000', path: [Buffer.from('b')] },
+        ],
+      };
+      expect(schema.checkTorrent(torrent)).to.be.null;
+    });
+
     it('`info.private` can only be 0 or 1', () => {
       torrent.info.private = 3;
       expect(schema.checkTorrent(torrent)).to.equal(
