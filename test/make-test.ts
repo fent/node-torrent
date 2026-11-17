@@ -527,15 +527,263 @@ describe('Make', () => {
       });
     });
 
-    it('Errors when streams and file paths are mixed', (done) => {
-      const mixed = [new PassThrough(), 'click.jpg'] as unknown as nt.MakeFiles;
+    it('Uses multi file mode for a single nested stream path', (done) => {
+      const pt = new PassThrough();
+      nt.make(
+        tracker,
+        folder,
+        { stream: pt, path: ['nested', 'only.bin'] },
+        (err, torrent) => {
+          expect(err).to.be.null;
+          expect(torrent?.metadata.info.files?.length).to.equal(1);
+          expect(torrent?.metadata.info.name).to.equal('files');
+          done();
+        },
+      );
+      pt.end(Buffer.alloc(10, 11));
+    });
+
+    it('Keeps list order when mixing known-length streams and paths', (done) => {
+      const entry: nt.StreamEntry = {
+        stream: fs.createReadStream(path.join(folder, 'heart.jpg')),
+        path: 'aaa.bin',
+      };
+      const makeStream = nt.make(tracker, folder, ['click.jpg', entry]);
+      nt.read(makeStream, (err, torrent) => {
+        expect(err).to.be.null;
+        expect(
+          torrent?.metadata.info.files?.map((file) => file.path),
+        ).to.deep.equal([['click.jpg'], ['aaa.bin']]);
+        done();
+      });
+    });
+
+    it('Expands directories in place before unknown-length streams', (done) => {
+      const pt = new PassThrough();
+      const makeStream = nt.make(
+        tracker,
+        folder,
+        ['.', { stream: pt, path: 'later.bin' }],
+        { pieceLength: 14 },
+      );
+      nt.read(makeStream, (err, torrent) => {
+        expect(err).to.be.null;
+        expect(
+          torrent?.metadata.info.files?.map((file) => file.path),
+        ).to.deep.equal([['click.jpg'], ['heart.jpg'], ['later.bin']]);
+        done();
+      });
+      pt.end(Buffer.alloc(100, 3));
+    });
+
+    it('Hashes unknown-length streams before following files', (done) => {
+      const pt = new PassThrough();
+      const makeStream = nt.make(
+        tracker,
+        folder,
+        [{ stream: pt, path: 'first.bin' }, 'click.jpg'],
+        { pieceLength: 14 },
+      );
+      nt.read(makeStream, (err, torrent) => {
+        expect(err).to.be.null;
+        expect(
+          torrent?.metadata.info.files?.map((file) => file.path),
+        ).to.deep.equal([['first.bin'], ['click.jpg']]);
+        done();
+      });
+      pt.end(Buffer.alloc(100, 4));
+    });
+
+    it('Suffixes unnamed streams that collide with file paths', (done) => {
+      const entry = fs.createReadStream(path.join(folder, 'heart.jpg'));
+      nt.make(tracker, folder, ['heart.jpg', entry], (err, torrent) => {
+        expect(err).to.be.null;
+        expect(
+          torrent?.metadata.info.files?.map((file) => file.path),
+        ).to.deep.equal([['heart.jpg'], ['heart.jpg-1']]);
+        done();
+      });
+    });
+
+    it('Errors when a stream path extends a file path', (done) => {
+      const mixed = [
+        'click.jpg',
+        { stream: new PassThrough(), path: ['click.jpg', 'nested'] },
+      ];
+      nt.make(tracker, folder, mixed, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.equal('Path conflict: click.jpg');
+        done();
+      });
+    });
+
+    it('Errors on path conflict even with sibling sorting before slash', (done) => {
+      const mixed = [
+        { stream: new PassThrough(), path: 'foo' },
+        { stream: new PassThrough(), path: 'foo.txt' },
+        { stream: new PassThrough(), path: ['foo', 'bar'] },
+      ];
+      nt.make(tracker, folder, mixed, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.equal('Path conflict: foo');
+        done();
+      });
+    });
+
+    it('Errors when directory expansion duplicates a path', (done) => {
+      const mixed = ['.', 'click.jpg', new PassThrough()];
+      nt.make(tracker, folder, mixed, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.equal('Duplicate path: click.jpg');
+        done();
+      });
+    });
+
+    it('Errors on file entries in mixed lists', (done) => {
+      const mixed = [
+        'click.jpg',
+        new PassThrough(),
+        { path: ['x'], length: 1 },
+      ] as unknown as nt.MakeFiles;
       nt.make(tracker, folder, mixed, (err) => {
         expect(err).to.be.an('error');
         expect(err?.message).to.equal(
-          'Cannot mix streams with file paths in the same list',
+          'Mixed lists can only contain file paths and streams',
         );
         done();
       });
+    });
+
+    it('Errors when a stream path duplicates a file path', (done) => {
+      const mixed = [
+        { stream: new PassThrough(), path: 'click.jpg' },
+        'click.jpg',
+      ];
+      nt.make(tracker, folder, mixed, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.equal('Duplicate path: click.jpg');
+        done();
+      });
+    });
+
+    it('Errors when a mixed file path traverses', (done) => {
+      nt.make(tracker, folder, ['../secret', new PassThrough()], (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.contain('Path traversal detected');
+        done();
+      });
+    });
+
+    it('Errors when a mixed stream path traverses', (done) => {
+      const mixed = [
+        { stream: new PassThrough(), path: ['..', 'secret.txt'] },
+        'click.jpg',
+      ];
+      nt.make(tracker, folder, mixed, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.contain('Path traversal detected');
+        done();
+      });
+    });
+
+    it('Errors when a mixed stream length is invalid', (done) => {
+      const mixed = [
+        { stream: new PassThrough(), path: 'bad.bin', length: -1 },
+        'click.jpg',
+      ];
+      nt.make(tracker, folder, mixed, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.contain('Invalid stream length');
+        done();
+      });
+    });
+
+    it('Names unnamed mixed streams after the directory', (done) => {
+      const pt = new PassThrough();
+      const makeStream = nt.make(tracker, folder, ['.', pt], {
+        pieceLength: 14,
+      });
+      nt.read(makeStream, (err, torrent) => {
+        expect(err).to.be.null;
+        expect(
+          torrent?.metadata.info.files?.map((file) => file.path),
+        ).to.deep.equal([['click.jpg'], ['heart.jpg'], ['files']]);
+        done();
+      });
+      pt.end(Buffer.alloc(10, 5));
+    });
+
+    it('Infers names for unnamed mixed stream entries', (done) => {
+      const pt = new PassThrough();
+      const makeStream = nt.make(
+        tracker,
+        folder,
+        ['click.jpg', { stream: pt, path: ['nested', 'stream.bin'] }],
+        { pieceLength: 14 },
+      );
+      nt.read(makeStream, (err, torrent) => {
+        expect(err).to.be.null;
+        expect(
+          torrent?.metadata.info.files?.map((file) => file.path),
+        ).to.deep.equal([['click.jpg'], ['nested', 'stream.bin']]);
+        done();
+      });
+      pt.end(Buffer.alloc(10, 6));
+    });
+
+    it('Names mixed stream entries without a path', (done) => {
+      const pt = new PassThrough();
+      const makeStream = nt.make(
+        tracker,
+        folder,
+        ['heart.jpg', { stream: pt }],
+        { pieceLength: 14 },
+      );
+      nt.read(makeStream, (err, torrent) => {
+        expect(err).to.be.null;
+        expect(
+          torrent?.metadata.info.files?.map((file) => file.path),
+        ).to.deep.equal([['heart.jpg'], ['files']]);
+        done();
+      });
+      pt.end(Buffer.alloc(10, 10));
+    });
+
+    it('Validates known lengths in mixed lists', (done) => {
+      const unknown = new PassThrough();
+      const short = new PassThrough();
+      const mixed = [
+        { stream: unknown, path: 'unknown.bin' },
+        { stream: short, path: 'short.bin', length: 10 },
+        'click.jpg',
+      ];
+      nt.make(tracker, folder, mixed, (err) => {
+        expect(err).to.be.an('error');
+        expect(err?.message).to.contain('Stream length mismatch');
+        done();
+      });
+      unknown.end(Buffer.alloc(1, 7));
+      short.end(Buffer.alloc(5, 8));
+    });
+
+    it('Mixes paths and streams without a directory', (done) => {
+      const relative = path.relative(
+        process.cwd(),
+        path.join(folder, 'heart.jpg'),
+      );
+      const pt = new PassThrough();
+      nt.make(
+        tracker,
+        '',
+        [relative, { stream: pt, path: 'stream.bin' }],
+        (err, torrent) => {
+          expect(err).to.be.null;
+          expect(torrent?.metadata.info.files?.length).to.equal(2);
+          expect(torrent?.metadata.info.name).to.equal('stream');
+          done();
+        },
+      );
+      pt.end(Buffer.alloc(10, 9));
     });
 
     it('Errors when a stream length is negative', (done) => {
@@ -607,7 +855,7 @@ describe('Make', () => {
       ];
       nt.make(tracker, folder, entries, (err) => {
         expect(err).to.be.an('error');
-        expect(err?.message).to.equal('Duplicate stream path: same.txt');
+        expect(err?.message).to.equal('Duplicate path: same.txt');
         done();
       });
     });

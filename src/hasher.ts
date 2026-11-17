@@ -52,6 +52,17 @@ export interface FileTask extends FileEntry {
   stream?: Readable;
 }
 
+/**
+ * An input resolved to a torrent path. Exactly one source field is set:
+ * `stream` for readable inputs or `filepath` for files on disk. `length` stays
+ * undefined for streams whose size cannot be inferred.
+ */
+type ResolvedItem = {
+  path: string[];
+  length?: number;
+  autoNamed?: boolean;
+} & ({ stream: Readable } | { filepath: string });
+
 export interface PieceBuffer {
   buffer: Buffer | null;
   length: number;
@@ -70,6 +81,9 @@ export const isReadableStream = (val: unknown): val is Readable =>
 
 export const isStreamEntry = (val: unknown): val is StreamEntry =>
   typeof val === 'object' && val !== null && 'stream' in val;
+
+const isStreamInput = (item: unknown): item is Readable | StreamEntry =>
+  isReadableStream(item) || isStreamEntry(item);
 
 /**
  * Infers a path from a stream that knows where its data comes from,
@@ -142,6 +156,14 @@ const sortByPath = (a: FileEntry, b: FileEntry): number => {
   return a.path.length - b.path.length;
 };
 
+/**
+ * Builds a torrent's file list and hashes it into pieces.
+ *
+ * Inputs are first resolved and validated, then piece offsets are planned. When
+ * every input length is known, files are read in parallel. If any stream length
+ * is unknown, hashing switches to a single sequential pass because each input's
+ * starting offset depends on everything before it.
+ */
 export default class Hasher extends Stream {
   public pieceLength: number;
   public maxFiles: number;
@@ -162,7 +184,7 @@ export default class Hasher extends Stream {
   public unknownLengths: boolean;
 
   /**
-   * Calculates piece hashes of file list.
+   * Resolves the inputs and prepares the hasher.
    */
   constructor(
     dir: string,
@@ -199,209 +221,314 @@ export default class Hasher extends Stream {
       });
     }
 
-    const isStreamInput = (item: unknown): item is Readable | StreamEntry =>
-      isReadableStream(item) || isStreamEntry(item);
-    const streamCount = list.filter(isStreamInput).length;
+    if (list.some(isStreamInput)) {
+      this._resolveInputs(list).then(
+        (items) => this._beginHashing(items),
+        (err: Error) => this._emitError(err),
+      );
+      return;
+    }
 
-    // The piece order depends on the order of the input list, so mixing
-    // streams with file paths would be ambiguous.
-    if (streamCount > 0 && streamCount < list.length) {
-      process.nextTick(() => {
-        this.emit(
-          'error',
-          new Error('Cannot mix streams with file paths in the same list'),
-        );
+    this._beginPathInputs(list);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Input resolution
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Reports an error on the next tick so callers can attach listeners.
+   */
+  private _emitError(err: Error): void {
+    process.nextTick(() => this.emit('error', err));
+  }
+
+  /**
+   * Resolves streams and paths into a single ordered list of torrent entries.
+   *
+   * Unlike pure path lists (which are sorted globally), the order of the input
+   * list is authoritative here. Directories are expanded in place and their
+   * entries are sorted within that directory.
+   */
+  private async _resolveInputs(list: HasherInput[]): Promise<ResolvedItem[]> {
+    const baseName = path.basename(this.dir) || 'stream';
+    const items: ResolvedItem[] = [];
+
+    for (const input of list) {
+      if (isReadableStream(input)) {
+        items.push(this._streamItem(input, baseName));
+      } else if (isStreamEntry(input)) {
+        items.push(this._streamEntryItem(input, baseName));
+      } else if (typeof input === 'string') {
+        await this._collectPath(input, items);
+      } else {
+        throw new Error('Mixed lists can only contain file paths and streams');
+      }
+    }
+
+    await Promise.all(
+      items.map(async (item) => {
+        if ('stream' in item && item.length === undefined) {
+          item.length = await inferStreamLength(item.stream);
+        }
+      }),
+    );
+
+    this._validateItems(items);
+    this._assignNames(items);
+    return items;
+  }
+
+  /**
+   * Builds a torrent entry for a bare readable stream.
+   */
+  private _streamItem(stream: Readable, baseName: string): ResolvedItem {
+    return {
+      stream,
+      path: inferStreamPath(stream) ?? [baseName],
+      autoNamed: true,
+    };
+  }
+
+  /**
+   * Builds a torrent entry for a `{ stream, path, length }` input.
+   */
+  private _streamEntryItem(entry: StreamEntry, baseName: string): ResolvedItem {
+    const rawPath = entry.path;
+    let itemPath: string[];
+    if (rawPath == null) {
+      itemPath = inferStreamPath(entry.stream) ?? [baseName];
+    } else if (Array.isArray(rawPath)) {
+      itemPath = rawPath;
+    } else {
+      itemPath = util.splitPath(rawPath);
+    }
+
+    return {
+      stream: entry.stream,
+      path: itemPath,
+      length: entry.length,
+      autoNamed: rawPath == null,
+    };
+  }
+
+  /**
+   * Validates an input path, then expands it into files in list order.
+   */
+  private async _collectPath(
+    input: string,
+    items: ResolvedItem[],
+  ): Promise<void> {
+    const relPath = path.normalize(input);
+    if (path.isAbsolute(relPath) || relPath.split(path.sep).includes('..')) {
+      throw new Error(`Path traversal detected: ${relPath}`);
+    }
+    await this._walkPath(relPath, items);
+  }
+
+  /**
+   * Recursively walks a path. Directories are expanded in sorted order.
+   */
+  private async _walkPath(
+    relPath: string,
+    items: ResolvedItem[],
+  ): Promise<void> {
+    const fullPath = path.join(this.dir, relPath);
+    const stat = await fs.promises.stat(fullPath);
+
+    if (stat.isFile()) {
+      items.push({
+        path: util.splitPath(relPath),
+        length: stat.size,
+        filepath: fullPath,
       });
       return;
     }
 
-    if (streamCount > 0) {
-      const baseName = path.basename(this.dir) || 'stream';
-      const streamItems = (list as Array<Readable | StreamEntry>).map(
-        (item) => {
-          if (isStreamEntry(item)) {
-            const rawPath = item.path;
-            let itemPath: string[];
-            if (rawPath == null) {
-              itemPath = inferStreamPath(item.stream) ?? [baseName];
-            } else if (Array.isArray(rawPath)) {
-              itemPath = rawPath;
-            } else {
-              itemPath = util.splitPath(rawPath);
-            }
-            return {
-              stream: item.stream,
-              path: itemPath,
-              length: item.length,
-              autoNamed: rawPath == null,
-            };
-          }
-          const streamPath = inferStreamPath(item) ?? [baseName];
-          return {
-            stream: item,
-            path: streamPath,
-            length: undefined,
-            autoNamed: true,
-          };
-        },
-      );
+    if (stat.isDirectory()) {
+      const names = (await fs.promises.readdir(fullPath)).sort();
+      for (const name of names) {
+        await this._walkPath(path.join(relPath, name), items);
+      }
+    }
+  }
 
-      // Validate paths and lengths before consuming any streams.
-      for (const item of streamItems) {
-        const label = item.path.join('/');
-        if (
-          item.path.length === 0 ||
-          !item.path.every(
-            (seg) =>
-              typeof seg === 'string' && isValidPathSegment(Buffer.from(seg)),
-          )
-        ) {
-          process.nextTick(() => {
-            this.emit('error', new Error(`Path traversal detected: ${label}`));
-          });
-          return;
-        }
-        if (
-          item.length !== undefined &&
-          (!Number.isInteger(item.length) || item.length < 0)
-        ) {
-          process.nextTick(() => {
-            this.emit(
-              'error',
-              new Error(
-                `Invalid stream length for "${label}": must be a non-negative integer`,
-              ),
-            );
-          });
-          return;
-        }
+  /**
+   * Rejects invalid paths and stream lengths.
+   */
+  private _validateItems(items: ResolvedItem[]): void {
+    for (const item of items) {
+      const label = item.path.join('/');
+      if (
+        item.path.length === 0 ||
+        !item.path.every(
+          (seg) =>
+            typeof seg === 'string' && isValidPathSegment(Buffer.from(seg)),
+        )
+      ) {
+        throw new Error(`Path traversal detected: ${label}`);
       }
 
-      // Reserve explicitly named paths so generated names don't collide.
-      const usedPaths = new Set<string>();
-      for (const item of streamItems) {
-        if (item.autoNamed) continue;
-        const key = item.path.join('/');
-        if (usedPaths.has(key)) {
-          process.nextTick(() => {
-            this.emit('error', new Error(`Duplicate stream path: ${key}`));
-          });
-          return;
-        }
-        usedPaths.add(key);
+      if (
+        'stream' in item &&
+        item.length !== undefined &&
+        (!Number.isInteger(item.length) || item.length < 0)
+      ) {
+        throw new Error(
+          `Invalid stream length for "${label}": must be a non-negative integer`,
+        );
       }
+    }
+  }
 
-      // Give unnamed streams unique names.
-      for (const item of streamItems) {
-        if (!item.autoNamed) continue;
-        const basePath = item.path;
-        let candidate = basePath;
-        let suffix = 0;
-        while (usedPaths.has(candidate.join('/'))) {
-          suffix++;
-          candidate = [
-            ...basePath.slice(0, -1),
-            `${basePath[basePath.length - 1]}-${suffix}`,
-          ];
-        }
-        item.path = candidate;
-        usedPaths.add(candidate.join('/'));
+  /**
+   * Reserves explicit paths and gives unnamed streams unique suffixes.
+   */
+  private _assignNames(items: ResolvedItem[]): void {
+    const usedPaths = new Set<string>();
+
+    // Explicit paths, including files found on disk, must be unique.
+    for (const item of items) {
+      if (item.autoNamed) continue;
+      const key = item.path.join('/');
+      if (usedPaths.has(key)) {
+        throw new Error(`Duplicate path: ${key}`);
       }
-
-      const begin = () => {
-        if (streamItems.every((item) => typeof item.length === 'number')) {
-          this.files = streamItems.map((item) => ({
-            length: item.length as number,
-            path: item.path,
-          }));
-          this._CreateFileTasks();
-          streamItems.forEach((item, i) => {
-            this.filetasks[i].stream = item.stream;
-          });
-          process.nextTick(() => {
-            this.ready = true;
-            this.emit('ready');
-            this._start();
-          });
-        } else {
-          this.unknownLengths = true;
-          process.nextTick(() => {
-            this.ready = true;
-            this.emit('ready');
-            this._startStreams(streamItems);
-          });
-        }
-      };
-
-      if (streamItems.some((item) => item.length === undefined)) {
-        Promise.all(
-          streamItems.map((item) =>
-            item.length === undefined
-              ? inferStreamLength(item.stream)
-              : Promise.resolve(item.length),
-          ),
-        ).then((lengths) => {
-          lengths.forEach((length, i) => {
-            if (streamItems[i].length === undefined) {
-              streamItems[i].length = length;
-            }
-          });
-          begin();
-        });
-      } else {
-        begin();
-      }
-      return;
+      usedPaths.add(key);
     }
 
-    fs.access(dir, (err) => {
+    // Unnamed streams avoid both disk paths and other stream paths.
+    for (const item of items) {
+      if (!item.autoNamed) continue;
+      const basePath = item.path;
+      let candidate = basePath;
+      let suffix = 0;
+      while (usedPaths.has(candidate.join('/'))) {
+        suffix++;
+        candidate = [
+          ...basePath.slice(0, -1),
+          `${basePath[basePath.length - 1]}-${suffix}`,
+        ];
+      }
+      item.path = candidate;
+      usedPaths.add(candidate.join('/'));
+    }
+
+    // A file path cannot also be a directory prefix of another path.
+    for (const item of items) {
+      for (let i = 1; i < item.path.length; i++) {
+        const prefix = item.path.slice(0, i).join('/');
+        if (usedPaths.has(prefix)) {
+          throw new Error(`Path conflict: ${prefix}`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Starts reading pure path inputs. Paths are sorted so the resulting torrent
+   * does not depend on filesystem iteration order.
+   */
+  private _beginPathInputs(list: HasherInput[]): void {
+    fs.access(this.dir, (err) => {
       if (err) {
-        return this.emit('error', err);
+        this.emit('error', err);
+        return;
       }
 
-      const fromDisk = typeof list[0] === 'string';
-
-      const readTasks = (readErr?: Error | null) => {
-        // Create shallow copy of the files array.
-        this.files = Array.from(this.files);
-
-        // When creating a torrent from files on disk, sort them alphabetically.
-        // File lists from an existing torrent must keep their original order,
-        // since the piece hashes depend on it, so they are not sorted.
-        if (fromDisk) {
-          this.files.sort(sortByPath);
-        }
-
-        if (readErr) return this.emit('error', readErr);
-
-        // If files tree traversed with no errors,
-        // add read tasks to filetasks.
-        this._CreateFileTasks();
-
-        // Ready to start hashing.
-        this.ready = true;
-        this.emit('ready');
-        this._start();
-      };
-
-      // Check if list contains objects or strings.
-      if (fromDisk) {
-        // Create queue to handle having many files opened.
-        const statqueue = queue<string, fs.Stats>((filepath, cb) => {
-          fs.stat(filepath, cb);
-        }, this.maxFiles);
-        this._getFilesStats(statqueue, list as string[], readTasks);
-
-        // In the case of objects, a file list from a torrent file was given.
+      if (typeof list[0] === 'string') {
+        this._loadPaths(list as string[]);
       } else {
-        this.files = list as FileEntry[];
-        process.nextTick(readTasks);
+        this._useFileEntries(list as FileEntry[]);
       }
     });
   }
 
   /**
-   * Create filetasks array
+   * Stats and expands paths, then plans the piece layout.
+   */
+  private _loadPaths(paths: string[]): void {
+    // Limit how many files are opened while walking the tree.
+    const statqueue = queue<string, fs.Stats>((filepath, cb) => {
+      fs.stat(filepath, cb);
+    }, this.maxFiles);
+
+    this._getFilesStats(statqueue, paths, (err?: Error | null) => {
+      // Sort even on failure so partially collected files are deterministic.
+      this.files = Array.from(this.files).sort(sortByPath);
+
+      if (err) {
+        this.emit('error', err);
+        return;
+      }
+
+      this._CreateFileTasks();
+      this._readyAndStart(() => this._start());
+    });
+  }
+
+  /**
+   * Uses an already-known file list, such as one from an existing torrent.
+   * Order is preserved because it determines the piece hashes.
+   */
+  private _useFileEntries(entries: FileEntry[]): void {
+    this.files = Array.from(entries);
+    process.nextTick(() => {
+      this._CreateFileTasks();
+      this._readyAndStart(() => this._start());
+    });
+  }
+
+  /**
+   * Starts hashing a resolved stream/path list.
+   *
+   * When every length is known, piece offsets can be planned up front and files
+   * are hashed in parallel. If any stream length is unknown, hashing falls back
+   * to a single sequential pass because later offsets cannot be known yet.
+   */
+  private _beginHashing(items: ResolvedItem[]): void {
+    if (items.some((item) => item.length === undefined)) {
+      this.unknownLengths = true;
+      this.files = [];
+      this._readyAndStart(() => this._startSequential(items));
+      return;
+    }
+
+    this.files = items.map((item) => ({
+      length: item.length as number,
+      path: item.path,
+    }));
+    this._CreateFileTasks();
+
+    // Attach stream-backed tasks; path-backed tasks are opened when hashed.
+    items.forEach((item, i) => {
+      if ('stream' in item) this.filetasks[i].stream = item.stream;
+    });
+
+    this._readyAndStart(() => this._start());
+  }
+
+  /**
+   * Marks the hasher ready, then starts hashing on the next tick.
+   */
+  private _readyAndStart(start: () => void): void {
+    process.nextTick(() => {
+      this.ready = true;
+      this.emit('ready');
+      start();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Piece planning
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Plans which pieces each file covers.
+   *
+   * Files are laid out consecutively, so a file may start partway into a piece
+   * and may span several pieces. Each task records its first piece and the
+   * offset within that piece.
    */
   _CreateFileTasks(): void {
     // Variables to help calculate piece position.
@@ -438,8 +565,15 @@ export default class Hasher extends Stream {
       this.pieces === 0 ? 0 : totalSize - this.pieceLength * (this.pieces - 1);
   }
 
+  // ---------------------------------------------------------------------------
+  // Hashing
+  // ---------------------------------------------------------------------------
+
   /**
-   * Starts the actual hashing process
+   * Hashes a fully planned file list in parallel.
+   *
+   * Only used when every input length is known, since piece offsets must be
+   * calculated before reading starts.
    */
   _start(): void {
     if (!this.ready) {
@@ -530,11 +664,12 @@ export default class Hasher extends Stream {
           );
           return;
         }
-        // Recalculate the index of current piece based on `readSoFar`.
+        // A chunk can begin partway through a piece and may span several.
+        // Recalculate the current piece from the task's starting offset.
         pieceIndex =
           task.piece + Math.floor((task.offset + readSoFar) / this.pieceLength);
 
-        // Write data to piece buffer.
+        // Write the chunk into its piece buffer(s).
         const targetStart = (task.offset + readSoFar) % this.pieceLength;
         let sourceWritten = this._writePiece(
           pieces,
@@ -606,11 +741,14 @@ export default class Hasher extends Stream {
   }
 
   /**
-   * Sequentially hashes streams of unknown length.
+   * Hashes inputs one at a time in list order.
+   *
+   * Used whenever any stream length is unknown: later piece offsets cannot be
+   * planned until earlier inputs have been read, so parallelism is not possible.
+   * File entries are recorded as each input finishes, which lets `make` build
+   * metadata once the whole list has been consumed.
    */
-  _startStreams(
-    streamItems: Array<{ stream: Readable; path: string[] }>,
-  ): void {
+  _startSequential(items: ResolvedItem[]): void {
     this.hashing = true;
     this.stopped = false;
     this.streamGroup = new StreamSpeed();
@@ -620,74 +758,85 @@ export default class Hasher extends Stream {
     let bytesWritten = 0;
     let pieceIndex = 0;
 
-    const filesqueue = queue<{ stream: Readable; path: string[] }>(
-      (item, callback) => {
-        if (this.err || this.stopped) return callback();
+    const filesqueue = queue<ResolvedItem>((item, callback) => {
+      if (this.err || this.stopped) return callback();
 
-        let fileLength = 0;
-        let finished = false;
-        const file = path.join(this.dir, ...item.path);
-        const rs = item.stream;
-        this.streamGroup.add(rs);
+      let fileLength = 0;
+      let finished = false;
+      const file = path.join(this.dir, ...item.path);
+      const rs =
+        'stream' in item ? item.stream : fs.createReadStream(item.filepath);
+      this.streamGroup.add(rs);
 
-        const finish = (err?: Error) => {
-          if (finished) return;
-          finished = true;
-          if (err && !this.err) this.emit('error', err);
-          callback();
-        };
+      const finish = (err?: Error) => {
+        if (finished) return;
+        finished = true;
+        if (err && !this.err) this.emit('error', err);
+        callback();
+      };
 
-        rs.on('data', (chunk: string | Buffer) => {
-          if (finished) return;
-          const data = chunk as Buffer;
-          fileLength += data.length;
-          this.totalSize += data.length;
+      rs.on('data', (chunk: string | Buffer) => {
+        if (finished) return;
+        const data = chunk as Buffer;
+        fileLength += data.length;
+        this.totalSize += data.length;
 
-          let offset = 0;
-          while (offset < data.length) {
-            const size = Math.min(
-              data.length - offset,
-              this.pieceLength - bytesWritten,
+        // Fill the current piece buffer. Whenever it fills, hash it and
+        // continue with the rest of the chunk in the next piece.
+        let offset = 0;
+        while (offset < data.length) {
+          const size = Math.min(
+            data.length - offset,
+            this.pieceLength - bytesWritten,
+          );
+          data.copy(pieceBuffer, bytesWritten, offset, offset + size);
+          bytesWritten += size;
+          offset += size;
+
+          if (bytesWritten === this.pieceLength) {
+            const buf = Buffer.from(sha1(pieceBuffer));
+            this.emit(
+              'hash',
+              pieceIndex,
+              buf,
+              file,
+              fileLength - data.length + offset - size,
+              size,
             );
-            data.copy(pieceBuffer, bytesWritten, offset, offset + size);
-            bytesWritten += size;
-            offset += size;
-
-            if (bytesWritten === this.pieceLength) {
-              const buf = Buffer.from(sha1(pieceBuffer));
-              this.emit(
-                'hash',
-                pieceIndex,
-                buf,
-                file,
-                fileLength - data.length + offset - size,
-                size,
-              );
-              pieceIndex++;
-              bytesWritten = 0;
-            }
+            pieceIndex++;
+            bytesWritten = 0;
           }
-        });
+        }
+      });
 
-        rs.on('error', (err) => {
-          finish(err);
-        });
+      rs.on('error', (err: Error) => {
+        finish(err);
+      });
 
-        rs.on('end', () => {
-          if (finished) return;
-          this.files.push({
-            length: fileLength,
-            path: item.path,
-          });
-          finish();
+      rs.on('end', () => {
+        if (finished) return;
+        if (item.length !== undefined && fileLength !== item.length) {
+          finish(
+            new Error(
+              `Stream length mismatch for "${file}": expected ${item.length} bytes but received ${fileLength}`,
+            ),
+          );
+          return;
+        }
+        this.files.push({
+          length: fileLength,
+          path: item.path,
         });
-      },
-      1,
-    );
+        finish();
+      });
+    }, 1);
 
     filesqueue.drain = () => {
       this.hashing = false;
       if (this.err) return;
+
+      // Hash the final partial piece, if there is one. When the total size
+      // divides evenly, the last full piece was already emitted above.
       if (bytesWritten > 0) {
         const lastSlice = pieceBuffer.subarray(0, bytesWritten);
         const buf = Buffer.from(sha1(lastSlice));
@@ -705,7 +854,7 @@ export default class Hasher extends Stream {
       this.emit('end');
     };
 
-    streamItems.forEach((item) => {
+    items.forEach((item) => {
       filesqueue.push(item);
     });
   }

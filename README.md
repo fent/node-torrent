@@ -65,11 +65,15 @@ Reads a local file, or a readable stream. Returns readable stream.
 
 An error can be returned if the torrent is formatted incorrectly. Does not check if the dictonaries are listed alphabetically. Refer to the [BitTorrent Specification](http://wiki.theory.org/BitTorrentSpecification) for more info on torrent metainfo.
 
-### make(announceURL, dir, [files], [options], [callback(Error, Torrent)])
+### make(announceURL, dir, [streamOrEntries], [options], [callback(Error, Torrent)])
 
 ### make(announceURL, streamOrEntries, [options], [callback(Error, Torrent)])
 
-Makes a new torrent. `dir` is the root directory of the torrent, and can be omitted when the input consists only of streams. The `files` argument can be a file path, an array of file paths, a `Readable` stream, a `{ stream, path?, length? }` object, or an array of streams/stream entry objects. If `files` is omitted, all files in `dir`, including those in subdirectories, are added. `options` can have the following:
+Makes a new torrent. `dir` is the root directory of the torrent, and can be omitted when the input consists only of streams. The `streamOrEntries` argument can be a file path, a directory, a `Readable` stream, a `{ stream, path?, length? }` object, or an array mixing any of them. If `streamOrEntries` is omitted, all files in `dir`, including those in subdirectories, are added.
+
+`fs.ReadStream` inputs supply their path and length automatically, including ranged streams; HTTP responses with a `Content-Length` header supply their length automatically. Provide `path` and `length` for other streams when known. Stream order is preserved and directories are expanded in place.
+
+`options` can have the following:
 
 * `announceList` - An array of arrays of additional announce URLs.
 * `comment`
@@ -83,9 +87,7 @@ Makes a new torrent. `dir` is the root directory of the torrent, and can be omit
 
 `make` returns a Hasher object that emits raw bencoded `data` events.
 
-`fs.ReadStream` inputs supply their path and length automatically, including ranged streams; HTTP responses with a `Content-Length` header supply their length automatically. Provide `path` and `length` for other streams when known. Explicit `length` values must be non-negative integers matching the bytes produced. Streams and file paths cannot be mixed in the same file list.
-
-### makeWrite(output, announce, dir, [files], [options], [callback(Error, Torrent)])
+### makeWrite(output, announce, dir, [streamOrEntries], [options], [callback(Error, Torrent)])
 
 A shortcut that pumps the returned readable stream from `make` into a writable stream that points to the file `output`. Returns a Hasher object.
 

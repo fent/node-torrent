@@ -36,14 +36,14 @@ export interface MakeOptions {
 }
 
 /**
- * Inputs accepted by `make`. Arrays cannot mix streams with file paths.
+ * Inputs accepted by `make`. Arrays can mix file paths and streams; the list
+ * order determines the piece order.
  */
 export type MakeFiles =
   | string
-  | string[]
   | Readable
   | StreamEntry
-  | Array<Readable | StreamEntry>;
+  | Array<string | Readable | StreamEntry>;
 
 export type MakeCallback = (err: Error | null, torrent?: Torrent) => void;
 
@@ -235,15 +235,18 @@ export function make(
   metadata.info = info;
 
   const populateInfo = () => {
+    const single = hasher.files[0];
+    const needsMultimode = hasher.files.length > 1 || single.path.length > 1;
+
     // Multi file mode.
-    if (opts.multimode || hasher.files.length > 1) {
+    if (opts.multimode || needsMultimode) {
       info.files = hasher.files;
-      info.name = opts.name || path.basename(dir);
+      info.name = opts.name || path.basename(dir) || 'stream';
 
       // Single file mode.
     } else {
-      info.length = hasher.files[0].length;
-      info.name = path.join(...hasher.files[0].path);
+      info.length = single.length;
+      info.name = single.path[0];
     }
 
     info['piece length'] = pieceLength;
